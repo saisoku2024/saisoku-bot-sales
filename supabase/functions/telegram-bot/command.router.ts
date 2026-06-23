@@ -24,6 +24,10 @@ export async function routeCommand(
 
   const managedAdminCommands = new Set([
     "/setrole",
+    "/addvoucher",
+    "/delvoucher",
+    "/nonaktifvoucher",
+    "/aktifvoucher",
     "/broadcast",
     "/ban",
     "/unban",

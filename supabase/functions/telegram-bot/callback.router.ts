@@ -25,7 +25,6 @@ type CallbackHandlers = {
   handleBuyNow: (ctx: BotContext, data: string) => Promise<Response>;
   handleListProduk: (ctx: BotContext) => Promise<Response>;
   handleListProdukPage: (ctx: BotContext, data: string) => Promise<Response>;
-  handleStockMenu: (ctx: BotContext) => Promise<Response>;
 };
 
 export async function routeCallback(
@@ -109,10 +108,6 @@ export async function routeCallback(
   if (data.startsWith("buy_now_")) {
     return await handlers.handleBuyNow(ctx, data);
   }
-
-  if (data === "stock_menu") {
-  return await handlers.handleStockMenu(ctx);
-}
 
   return null;
 }

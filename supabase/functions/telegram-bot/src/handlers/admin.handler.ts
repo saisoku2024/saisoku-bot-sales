@@ -1,189 +1,71 @@
-export const config = {
-  verify_jwt: false,
-};
+import { supabase } from "../../supabase.ts";
+import { send } from "../../telegram.ts";
+import { rupiah } from "../../helper.ts";
+import { getRoleByTelegramId } from "../../user.repo.ts";
 
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-
-import { ENV } from "./env.ts";
-import { supabase } from "./supabase.ts";
-import {
-  getOrCreateUser,
-  getRoleByTelegramId,
-} from "./user.repo.ts";
-
-import {
-  send,
-  sendPhoto,
-  answerCallback,
-} from "./telegram.ts";
-
-import {
-  rupiah,
-  escapeHtml,
-} from "./helper.ts";
-
-import { buildBotContext, type BotContext } from "./context.ts";
-import { routeCommand } from "./command.router.ts";
-import { routeCallback } from "./callback.router.ts";
-import { routeMessage } from "./message.router.ts";
-import {
-  claimVoucherByCode,
-} from "./services/voucher.service.ts";
-
-import {
-  handleCreateDepositInvoice,
-  handleCancelDeposit,
-  handleConfirmDeposit,
-  handleApproveDeposit,
-  handleRejectDeposit,
-} from "./services/deposit.service.ts";
-
-import {
-  handleConfirmOrder,
-  handleDeleteOrder,
-  handleCancelOrder,
-  handleApproveOrder,
-  handleRejectOrder,
-  handleBuySaldo,
-  handleBuyNow,
-} from "./services/order.service.ts";
-
-import {
-  handleSaldoMenu,
-  handleClaimVoucherMenu,
-  handleDailyAbsen,
-  handleRiwayat,
-  handlePopuler,
-  handleMenuLain,
-  handleProfile,
-} from "./src/handlers/menu.handler.ts";
-
-import {
-  handleProductNumberInput,
-  handleQtyAction,
-  handleRefreshDetail,
-  handleListProduk,
-  handleListProdukPage,
-} from "./src/handlers/product.handler.ts";
-
-import {
-  isOwner,
-  isAdminOrOwner,
-  sendWrongFormat,
-  broadcastToAllUsers,
-} from "./src/handlers/admin.handler.ts";
-
-import {
-  handleStockMenu,
-} from "./src/handlers/stock.handler.ts";
-
+import type { BotContext } from "../../context.ts";
 
 function ok() {
   return new Response("ok");
 }
 
-// ===============================
-// HELPERS YANG MASIH DIPAKAI DI INDEX
-// ===============================
+export function isOwner(role: string) {
+  return role === "owner";
+}
 
+export function isAdminOrOwner(role: string) {
+  return role === "admin" || role === "owner";
+}
 
+export async function sendWrongFormat(
+  chatId: number,
+  command: string,
+  usage: string
+) {
+  await send(
+    chatId,
+    `❌ <b>Salah format command</b>
 
-// ===============================
-// HANDLERS
-// ===============================
-async function renderStartMenu(ctx: BotContext): Promise<Response> {
-  const { chatId, telegramId, username, user, message } = ctx;
-  const START_IMAGE_URL = ENV.START_IMAGE_URL;
+Command: <code>${command}</code>
 
-  const { data: dashboardRows, error: dashboardError } = await supabase.rpc(
-    "get_user_dashboard_summary",
-    {
-      p_telegram_id: telegramId,
-    }
+Cara input yang benar:
+${usage}`
   );
+}
 
-  if (dashboardError) {
-    console.error("START dashboardError:", dashboardError);
+export async function broadcastToAllUsers(text: string) {
+  const { data: users, error } = await supabase
+    .from("users")
+    .select("telegram_id, is_banned")
+    .not("telegram_id", "is", null);
+
+  if (error) {
+    console.error("broadcastToAllUsers error:", error);
+    return { success: 0, failed: 0, total: 0, error: error.message };
   }
 
-  const dashboard = dashboardRows?.[0];
-  const currentUser = dashboard || user;
+  let success = 0;
+  let failed = 0;
+  const recipients = (users || []).filter((u: any) => !u.is_banned);
 
-  const fullName =
-    [message?.from?.first_name, message?.from?.last_name]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || (username ? `@${username}` : `User ${telegramId}`);
-
-  const textMessage = `Halo ${escapeHtml(fullName)} 👋
-Selamat datang di SAISOKU.ID
-
-<b>User Info</b>
-└ ID : <code>${telegramId}</code>
-└ Username : ${username ? `@${escapeHtml(username)}` : "-"}
-└ Role : <b>${escapeHtml(currentUser.role || "reguler")}</b>
-└ Saldo : ${rupiah(Number(currentUser.balance || 0))}
-└ Total Beli : ${Number(dashboard?.total_buy || 0)} pcs
-└ Total Transaksi : ${rupiah(Number(dashboard?.total_spent || 0))}
-
-<b>Bot Info</b>
-└ Terjual : ${Number(dashboard?.total_terjual || 0)} pcs
-└ Total Transaksi : ${rupiah(Number(dashboard?.total_revenue || 0))}
-└ Total Pengguna : ${Number(dashboard?.total_users || 0)}`;
-
-  const keyboard = {
-  inline_keyboard: [
-    [
-      { text: "🛒 List Produk", callback_data: "list_produk" },
-      { text: "💰 Saldo", callback_data: "saldo" },
-    ],
-    [
-      { text: "🎮 Mini Games", callback_data: "daily_absen" },
-      { text: "⚙ Menu Lain", callback_data: "menu_lain" },
-    ],
-    [
-      { text: "📦 Stock", callback_data: "stock_menu" },
-    ],
-  ],
-};
-
-  try {
-    await sendPhoto(chatId, START_IMAGE_URL, textMessage, keyboard);
-  } catch (err) {
-    console.error("START sendPhoto error:", err);
-    await send(chatId, textMessage, keyboard);
+  for (const u of recipients) {
+    try {
+      if (!u.telegram_id) continue;
+      await send(Number(u.telegram_id), text);
+      success++;
+    } catch (err) {
+      console.error("broadcast send error:", err);
+      failed++;
+    }
   }
 
-  return ok();
+  return {
+    success,
+    failed,
+    total: recipients.length,
+    error: null,
+  };
 }
-
-async function handleStartCommand(ctx: BotContext): Promise<Response> {
-  return await renderStartMenu(ctx);
-}
-
-async function handleStartCallback(ctx: BotContext): Promise<Response> {
-  return await renderStartMenu(ctx);
-}
-
-async function handleClaimVoucherCommand(ctx: BotContext): Promise<Response> {
-  const { chatId, telegramId, args } = ctx;
-
-  if (args.length < 1) {
-    await sendWrongFormat(
-      chatId,
-      "/claimvoucher",
-      `<code>/claimvoucher &lt;kode&gt;</code>
-
-Contoh:
-<code>/claimvoucher SAISOKU100</code>`
-    );
-    return ok();
-  }
-
-  await claimVoucherByCode(chatId, telegramId, args[0]);
-  return ok();
-}
-
 async function handleManagedAdminCommand(ctx: BotContext): Promise<Response> {
   const { chatId, telegramId, args, cmd } = ctx;
 
@@ -574,117 +456,3 @@ Contoh:
 
   return ok();
 }
-
-// ===============================
-// SERVER
-// ===============================
-serve(async (req) => {
-  if (req.method !== "POST") {
-    return new Response("method not allowed", { status: 405 });
-  }
-
-  const expected = ENV.TELEGRAM_WEBHOOK_SECRET ?? "";
-  const incoming = req.headers.get("x-telegram-bot-api-secret-token") ?? "";
-
-  if (!expected || incoming !== expected) {
-    return new Response("unauthorized", { status: 401 });
-  }
-
-  try {
-    const contentType = req.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      return new Response("bad request", { status: 400 });
-    }
-
-    const body = await req.json();
-
-    const callback = body.callback_query;
-    if (callback) {
-      try {
-        await answerCallback(callback.id);
-      } catch (err) {
-        console.error("answerCallback error:", err);
-      }
-    }
-
-    const message = body.message;
-    if (!message && !callback) {
-      return ok();
-    }
-
-    const msg = message || callback.message;
-    const chatId = Number(msg?.chat?.id);
-    const telegramId = Number(message?.from?.id || callback?.from?.id);
-    const username = message?.from?.username || callback?.from?.username || null;
-
-    const user = await getOrCreateUser(telegramId, username);
-
-    if (!user) {
-      await send(chatId, "❌ Gagal memuat data user.");
-      return ok();
-    }
-
-    if (user.is_banned) {
-      if (callback || message?.text) {
-        await send(
-          chatId,
-          "⛔ Akun kamu sedang dibanned. Hubungi admin jika merasa ini kesalahan."
-        );
-      }
-      return ok();
-    }
-
-    const ctx = buildBotContext(body, user);
-    if (!ctx) return ok();
-
-    const commandResponse = await routeCommand(ctx, {
-      handleStartCommand,
-      handleClaimVoucherCommand,
-      handleManagedAdminCommand,
-    });
-    if (commandResponse) return commandResponse;
-
-    const callbackResponse = await routeCallback(ctx, {
-  handleStartCallback,
-  handleSaldoMenu,
-  handleClaimVoucherMenu,
-  handleDailyAbsen,
-  handleRiwayat,
-  handlePopuler,
-  handleMenuLain,
-  handleStockMenu,
-
-  handleCreateDepositInvoice,
-  handleCancelDeposit,
-  handleConfirmDeposit,
-  handleApproveDeposit,
-  handleRejectDeposit,
-
-  handleConfirmOrder,
-  handleCancelOrder,
-  handleApproveOrder,
-  handleRejectOrder,
-  handleDeleteOrder,
-
-  handleQtyAction,
-  handleRefreshDetail,
-  handleBuySaldo,
-  handleBuyNow,
-
-  handleListProduk,
-  handleListProdukPage,
-  handleProfile,
-});
-    if (callbackResponse) return callbackResponse;
-
-    const messageResponse = await routeMessage(ctx, {
-      handleProductNumberInput,
-    });
-    if (messageResponse) return messageResponse;
-
-    return ok();
-  } catch (err) {
-    console.error("WEBHOOK ERROR:", err);
-    return ok();
-  }
-});

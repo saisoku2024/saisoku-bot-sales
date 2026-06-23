@@ -5,6 +5,9 @@ export type BotContext = {
   message: any | null;
   callback: any | null;
   msg: any;
+
+  document: any | null; // Tambahan properti document
+
   chatId: number;
   telegramId: number;
   username: string | null;
@@ -25,8 +28,10 @@ export function buildBotContext(body: any, user: any): BotContext | null {
   const chatId = Number(msg?.chat?.id);
   const telegramId = Number(message?.from?.id || callback?.from?.id);
   const username = message?.from?.username || callback?.from?.username || null;
-  const document = message?.document;
+
   const text = message?.text ?? null;
+  const document = message?.document ?? null; // Ekstraksi document dari message
+
   const parsed = parseCommand(text);
 
   return {
@@ -34,6 +39,9 @@ export function buildBotContext(body: any, user: any): BotContext | null {
     message,
     callback,
     msg,
+
+    document, // Return properti document
+
     chatId,
     telegramId,
     username,

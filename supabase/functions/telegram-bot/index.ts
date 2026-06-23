@@ -73,11 +73,6 @@ import {
   broadcastToAllUsers,
 } from "./src/handlers/admin.handler.ts";
 
-import {
-  handleStockMenu,
-} from "./src/handlers/stock.handler.ts";
-
-
 function ok() {
   return new Response("ok");
 }
@@ -132,20 +127,17 @@ Selamat datang di SAISOKU.ID
 └ Total Pengguna : ${Number(dashboard?.total_users || 0)}`;
 
   const keyboard = {
-  inline_keyboard: [
-    [
-      { text: "🛒 List Produk", callback_data: "list_produk" },
-      { text: "💰 Saldo", callback_data: "saldo" },
+    inline_keyboard: [
+      [
+        { text: "🛒 List Produk", callback_data: "list_produk" },
+        { text: "💰 Saldo", callback_data: "saldo" },
+      ],
+      [
+        { text: "🎮 Mini Games", callback_data: "daily_absen" },
+        { text: "⚙ Menu Lain", callback_data: "menu_lain" },
+      ],
     ],
-    [
-      { text: "🎮 Mini Games", callback_data: "daily_absen" },
-      { text: "⚙ Menu Lain", callback_data: "menu_lain" },
-    ],
-    [
-      { text: "📦 Stock", callback_data: "stock_menu" },
-    ],
-  ],
-};
+  };
 
   try {
     await sendPhoto(chatId, START_IMAGE_URL, textMessage, keyboard);
@@ -645,36 +637,31 @@ serve(async (req) => {
     if (commandResponse) return commandResponse;
 
     const callbackResponse = await routeCallback(ctx, {
-  handleStartCallback,
-  handleSaldoMenu,
-  handleClaimVoucherMenu,
-  handleDailyAbsen,
-  handleRiwayat,
-  handlePopuler,
-  handleMenuLain,
-  handleStockMenu,
-
-  handleCreateDepositInvoice,
-  handleCancelDeposit,
-  handleConfirmDeposit,
-  handleApproveDeposit,
-  handleRejectDeposit,
-
-  handleConfirmOrder,
-  handleCancelOrder,
-  handleApproveOrder,
-  handleRejectOrder,
-  handleDeleteOrder,
-
-  handleQtyAction,
-  handleRefreshDetail,
-  handleBuySaldo,
-  handleBuyNow,
-
-  handleListProduk,
-  handleListProdukPage,
-  handleProfile,
-});
+      handleStartCallback,
+      handleSaldoMenu,
+      handleClaimVoucherMenu,
+      handleDailyAbsen,
+      handleRiwayat,
+      handlePopuler,
+      handleMenuLain,
+      handleCreateDepositInvoice,
+      handleCancelDeposit,
+      handleConfirmDeposit,
+      handleApproveDeposit,
+      handleRejectDeposit,
+      handleConfirmOrder,
+      handleCancelOrder,
+      handleApproveOrder,
+      handleRejectOrder,
+      handleDeleteOrder,
+      handleQtyAction,
+      handleRefreshDetail,
+      handleBuySaldo,
+      handleBuyNow,
+      handleListProduk,
+      handleListProdukPage,
+      handleProfile,
+    });
     if (callbackResponse) return callbackResponse;
 
     const messageResponse = await routeMessage(ctx, {
