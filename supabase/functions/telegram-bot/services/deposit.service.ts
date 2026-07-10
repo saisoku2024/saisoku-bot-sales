@@ -2,7 +2,12 @@ import { ENV } from "../env.ts";
 import { supabase } from "../supabase.ts";
 import { send, sendPhoto, editCaption } from "../telegram.ts";
 import { rupiah, escapeHtml, generateUniqueCode } from "../helper.ts";
-import { getRoleByTelegramId, getUserByTelegramId } from "../user.repo.ts";
+import {
+  getRoleByTelegramId,
+  getUserByTelegramId,
+  getUserRestrictedMessage,
+  isUserRestricted,
+} from "../user.repo.ts";
 import type { BotContext } from "../context.ts";
 
 function isAdminOrOwner(role: string) {
@@ -44,15 +49,16 @@ async function notifyAdminsOrOwners(text: string, kb?: any) {
 
   const { data: rows, error } = await supabase
     .from("users")
-    .select("telegram_id")
-    .in("role", ["admin", "owner"])
-    .eq("is_banned", false);
+    .select("telegram_id, is_banned, is_active")
+    .in("role", ["admin", "owner"]);
 
   if (error) {
     console.error("notifyAdminsOrOwners query error:", error);
   }
 
   for (const row of rows || []) {
+    if (isUserRestricted(row)) continue;
+
     if (row.telegram_id) {
       recipients.add(Number(row.telegram_id));
     }
@@ -98,8 +104,8 @@ export async function handleCreateDepositInvoice(
     return ok();
   }
 
-  if (freshUser.is_banned) {
-    await send(chatId, "❌ Akun kamu sedang dibanned.");
+  if (isUserRestricted(freshUser)) {
+    await send(chatId, getUserRestrictedMessage(freshUser));
     return ok();
   }
 

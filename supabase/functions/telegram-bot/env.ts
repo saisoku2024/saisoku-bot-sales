@@ -18,3 +18,6 @@ if (!ENV.SB_SERVICE_ROLE) throw new Error("Missing env SB_SERVICE_ROLE");
 if (!ENV.TELEGRAM_BOT_TOKEN) {
   throw new Error("Missing env TELEGRAM_BOT_TOKEN");
 }
+if (!ENV.TELEGRAM_WEBHOOK_SECRET) {
+  throw new Error("Missing env TELEGRAM_WEBHOOK_SECRET");
+}

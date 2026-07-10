@@ -20,11 +20,17 @@ type CallbackHandlers = {
   handleRejectOrder: (ctx: BotContext, data: string) => Promise<Response>;
   handleDeleteOrder: (ctx: BotContext, data: string) => Promise<Response>;
   handleQtyAction: (ctx: BotContext, data: string) => Promise<Response>;
+  handleQtyCustom: (ctx: BotContext, data: string) => Promise<Response>;
   handleRefreshDetail: (ctx: BotContext, data: string) => Promise<Response>;
   handleBuySaldo: (ctx: BotContext, data: string) => Promise<Response>;
   handleBuyNow: (ctx: BotContext, data: string) => Promise<Response>;
   handleListProduk: (ctx: BotContext) => Promise<Response>;
   handleListProdukPage: (ctx: BotContext, data: string) => Promise<Response>;
+  handlePickProduct: (ctx: BotContext, data: string) => Promise<Response>;
+  handleStockMenu: (ctx: BotContext) => Promise<Response>;
+  handleUploadStock: (ctx: BotContext) => Promise<Response>;
+  handleUploadStockPage: (ctx: BotContext, data: string) => Promise<Response>;
+  handleSelectUploadProduct: (ctx: BotContext, data: string) => Promise<Response>;
 };
 
 export async function routeCallback(
@@ -51,6 +57,10 @@ export async function routeCallback(
 
   if (data.startsWith("list_produk_page_")) {
     return await handlers.handleListProdukPage(ctx, data);
+  }
+
+  if (data.startsWith("pick_product_")) {
+    return await handlers.handlePickProduct(ctx, data);
   }
 
   if (data.startsWith("invoice_")) {
@@ -93,6 +103,12 @@ export async function routeCallback(
     return await handlers.handleDeleteOrder(ctx, data);
   }
 
+  // Routing khusus untuk Custom Qty
+  if (data.startsWith("qty_custom_")) {
+    return await handlers.handleQtyCustom(ctx, data);
+  }
+
+  // Routing untuk aksi qty lainnya
   if (data.startsWith("qty_")) {
     return await handlers.handleQtyAction(ctx, data);
   }
@@ -107,6 +123,22 @@ export async function routeCallback(
 
   if (data.startsWith("buy_now_")) {
     return await handlers.handleBuyNow(ctx, data);
+  }
+
+  if (data === "stock_menu") {
+    return await handlers.handleStockMenu(ctx);
+  }
+
+  if (data === "upload_stock") {
+    return await handlers.handleUploadStock(ctx);
+  }
+
+  if (data.startsWith("upload_stock_page_")) {
+    return await handlers.handleUploadStockPage(ctx, data);
+  }
+
+  if (data.startsWith("upload_product_")) {
+    return await handlers.handleSelectUploadProduct(ctx, data);
   }
 
   return null;

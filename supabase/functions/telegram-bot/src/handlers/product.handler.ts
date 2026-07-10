@@ -36,6 +36,121 @@ async function getProductDetailForBot(
   return data?.[0] ?? null;
 }
 
+function buildProductDetail(
+  product: any,
+  userRole: string,
+  qty: number,
+  stockNum: number,
+  unitPrice: number,
+  totalPrice: number
+) {
+  const text = `
+Tambahkan jumlah pembelian:
+
+╭──────────────
+• Produk : ${product.product_name}
+• Kode : ${product.product_code || "-"}
+• Role : ${product.user_role || userRole}
+• Sisa Stok : ${stockNum}
+• Desk : ${product.description || "-"}
+╰──────────────
+
+╭──────────────
+• Jumlah : ${qty}
+• Harga : ${rupiah(unitPrice)}
+• Total Harga : ${rupiah(totalPrice)}
+╰──────────────
+`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        { text: "➖", callback_data: `qty_minus_${product.product_id}_${qty}_${stockNum}` },
+        { text: "✏️", callback_data: `qty_custom_${product.product_id}_${qty}` },
+        { text: "➕", callback_data: `qty_plus_${product.product_id}_${qty}_${stockNum}` },
+      ],
+      [
+        { text: "🔄 Refresh", callback_data: `refresh_detail_${product.product_id}_${qty}` },
+      ],
+      [
+        { text: "Buy (Saldo)", callback_data: `buy_saldo_${product.product_id}_${qty}` },
+        { text: "Buy (Now)", callback_data: `buy_now_${product.product_id}_${qty}` },
+      ],
+      [{ text: "⬅️ Kembali", callback_data: "list_produk" }],
+    ],
+  };
+
+  return { text, keyboard };
+}
+
+function buildProductList(products: any[], page: number, ITEMS_PER_PAGE: number) {
+  const totalCount = Number(products[0]?.total_count || 0);
+  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
+  const startIndex = (page - 1) * ITEMS_PER_PAGE;
+
+  let textProduk = `<b>LIST PRODUCT</b>\n\n`;
+
+  products.forEach((p: any, i: number) => {
+    const nomor = startIndex + i + 1;
+    textProduk += `[${nomor}]. ${escapeHtml(p.name)} ( ${Number(
+      p.stock || 0
+    )} )\n`;
+  });
+
+  textProduk += `\n📄 Halaman ${page}/${totalPages}`;
+
+  const numberButtons: any[] = [];
+
+  for (let i = 0; i < products.length; i += 5) {
+    const row = [];
+
+    for (
+      let j = i;
+      j < Math.min(i + 5, products.length);
+      j++
+    ) {
+      const nomor = startIndex + j + 1;
+
+      row.push({
+        text: String(nomor),
+        callback_data: `pick_product_${nomor}`,
+      });
+    }
+
+    numberButtons.push(row);
+  }
+
+  const keyboard = {
+    inline_keyboard: [
+      [
+        {
+          text: "⬅️ Previous",
+          callback_data: `list_produk_page_${Math.max(1, page - 1)}`,
+        },
+        {
+          text: "🔄 Refresh",
+          callback_data: `list_produk_page_${page}`,
+        },
+        {
+          text: "➡️ Next",
+          callback_data: `list_produk_page_${Math.min(totalPages, page + 1)}`,
+        },
+      ],
+
+      ...numberButtons,
+
+      [
+        {
+          text: "🏠 Home",
+          callback_data: "start",
+        },
+      ],
+    ],
+  };
+
+  return { text: textProduk, keyboard };
+}
+
 // ===============================
 // EXPORTED HANDLERS
 // ===============================
@@ -78,43 +193,100 @@ export async function handleProductNumberInput(ctx: BotContext): Promise<Respons
   const unitPrice = Number(product.final_price || 0);
   const totalPrice = unitPrice * safeQty;
 
-  const detailText = `
-Tambahkan jumlah pembelian:
+  const { text, keyboard } = buildProductDetail(
+    product,
+    user.role,
+    safeQty,
+    stockNum,
+    unitPrice,
+    totalPrice
+  );
 
-╭──────────────
-• Produk : ${product.product_name}
-• Kode : ${product.product_code || "-"}
-• Role : ${product.user_role || user.role}
-• Sisa Stok : ${stockNum}
-• Desk : ${product.description || "-"}
-╰──────────────
+  await send(chatId, text, keyboard);
+  return ok();
+}
 
-╭──────────────
-• Jumlah : ${safeQty}
-• Harga : ${rupiah(unitPrice)}
-• Total Harga : ${rupiah(totalPrice)}
-╰──────────────
-`;
+export async function handleQtyCustom(
+  ctx: BotContext,
+  data: string
+): Promise<Response> {
+  const { chatId, telegramId, msg } = ctx;
 
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: "➖", callback_data: `qty_minus_${product.product_id}_${safeQty}_${stockNum}` },
-        { text: "✏️", callback_data: `qty_reset_${product.product_id}_${safeQty}_${stockNum}` },
-        { text: "➕", callback_data: `qty_plus_${product.product_id}_${safeQty}_${stockNum}` },
-      ],
-      [
-        { text: "🔄 Refresh", callback_data: `refresh_detail_${product.product_id}_${safeQty}` },
-      ],
-      [
-        { text: "Buy (Saldo)", callback_data: `buy_saldo_${product.product_id}_${safeQty}` },
-        { text: "Buy (Now)", callback_data: `buy_now_${product.product_id}_${safeQty}` },
-      ],
-      [{ text: "⬅️ Kembali", callback_data: "list_produk" }],
-    ],
-  };
+  const parts = data.split("_");
+  const productId = parts[2];
 
-  await send(chatId, detailText, keyboard);
+  // Simpan session ke database. 
+  // Pastikan Anda sudah membuat table "qty_sessions" dengan kolom: telegram_id (PK), product_id, message_id
+  await supabase.from("qty_sessions").upsert({
+    telegram_id: telegramId,
+    product_id: productId,
+    message_id: msg.message_id,
+  });
+
+  await send(
+    chatId,
+    "Silakan kirim jumlah pembelian.\n\nContoh:\n5\n10\n25"
+  );
+
+  return ok();
+}
+
+export async function handleQtyCustomInput(ctx: BotContext): Promise<Response> {
+  const { chatId, telegramId, normalizedText, user } = ctx;
+
+  // Cek apakah user sedang dalam mode input custom qty
+  const { data: session } = await supabase
+    .from("qty_sessions")
+    .select("*")
+    .eq("telegram_id", telegramId)
+    .single();
+
+  if (!session) {
+    // Jika tidak ada session, berarti user mengetik angka untuk memilih produk
+    return await handleProductNumberInput(ctx);
+  }
+
+  let newQty = parseInt(String(normalizedText));
+  
+  if (isNaN(newQty)) {
+    return await handleProductNumberInput(ctx);
+  }
+
+  if (newQty < 1) newQty = 1;
+
+  const productId = session.product_id;
+  const product = await getProductDetailForBot(productId, user.id);
+
+  if (!product) {
+    await send(chatId, "❌ Produk tidak ditemukan.");
+    await supabase.from("qty_sessions").delete().eq("telegram_id", telegramId);
+    return ok();
+  }
+
+  const stockNum = Number(product.stock_count || 0);
+
+  if (stockNum > 0 && newQty > stockNum) {
+    newQty = stockNum;
+  }
+
+  const unitPrice = Number(product.final_price || 0);
+  const totalPrice = unitPrice * newQty;
+
+  const { text, keyboard } = buildProductDetail(
+    product,
+    user.role,
+    newQty,
+    stockNum,
+    unitPrice,
+    totalPrice
+  );
+
+  // Update pesan detail yang lama
+  await editMessage(chatId, session.message_id, text, keyboard);
+
+  // Hapus session setelah berhasil update qty
+  await supabase.from("qty_sessions").delete().eq("telegram_id", telegramId);
+
   return ok();
 }
 
@@ -152,6 +324,7 @@ export async function handleQtyAction(
     qty--;
   }
 
+  // Tetap dipertahankan barangkali ada pesan lama (sebelum update) yang masih menggunakan tombol reset
   if (action === "reset") {
     qty = 1;
   }
@@ -169,43 +342,16 @@ export async function handleQtyAction(
   const unitPrice = Number(product.final_price || 0);
   const totalPrice = unitPrice * qty;
 
-  const textDetail = `
-Tambahkan jumlah pembelian:
+  const { text, keyboard } = buildProductDetail(
+    product,
+    user.role,
+    qty,
+    stockNum,
+    unitPrice,
+    totalPrice
+  );
 
-╭──────────────
-• Produk : ${product.product_name}
-• Kode : ${product.product_code || "-"}
-• Role : ${product.user_role || user.role}
-• Sisa Stok : ${stockNum}
-• Desk : ${product.description || "-"}
-╰──────────────
-
-╭──────────────
-• Jumlah : ${qty}
-• Harga : ${rupiah(unitPrice)}
-• Total Harga : ${rupiah(totalPrice)}
-╰──────────────
-`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: "➖", callback_data: `qty_minus_${product.product_id}_${qty}_${stockNum}` },
-        { text: "✏️", callback_data: `qty_reset_${product.product_id}_${qty}_${stockNum}` },
-        { text: "➕", callback_data: `qty_plus_${product.product_id}_${qty}_${stockNum}` },
-      ],
-      [
-        { text: "🔄 Refresh", callback_data: `refresh_detail_${product.product_id}_${qty}` },
-      ],
-      [
-        { text: "Buy (Saldo)", callback_data: `buy_saldo_${product.product_id}_${qty}` },
-        { text: "Buy (Now)", callback_data: `buy_now_${product.product_id}_${qty}` },
-      ],
-      [{ text: "⬅️ Kembali", callback_data: "list_produk" }],
-    ],
-  };
-
-  await editMessage(chatId, msg.message_id, textDetail, keyboard);
+  await editMessage(chatId, msg.message_id, text, keyboard);
   return ok();
 }
 
@@ -241,43 +387,16 @@ export async function handleRefreshDetail(
   const unitPrice = Number(product.final_price || 0);
   const totalPrice = unitPrice * qty;
 
-  const textDetail = `
-Tambahkan jumlah pembelian:
+  const { text, keyboard } = buildProductDetail(
+    product,
+    user.role,
+    qty,
+    stockNum,
+    unitPrice,
+    totalPrice
+  );
 
-╭──────────────
-• Produk : ${product.product_name}
-• Kode : ${product.product_code || "-"}
-• Role : ${product.user_role || user.role}
-• Sisa Stok : ${stockNum}
-• Desk : ${product.description || "-"}
-╰──────────────
-
-╭──────────────
-• Jumlah : ${qty}
-• Harga : ${rupiah(unitPrice)}
-• Total Harga : ${rupiah(totalPrice)}
-╰──────────────
-`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: "➖", callback_data: `qty_minus_${product.product_id}_${qty}_${stockNum}` },
-        { text: "✏️", callback_data: `qty_reset_${product.product_id}_${qty}_${stockNum}` },
-        { text: "➕", callback_data: `qty_plus_${product.product_id}_${qty}_${stockNum}` },
-      ],
-      [
-        { text: "🔄 Refresh", callback_data: `refresh_detail_${product.product_id}_${qty}` },
-      ],
-      [
-        { text: "Buy (Saldo)", callback_data: `buy_saldo_${product.product_id}_${qty}` },
-        { text: "Buy (Now)", callback_data: `buy_now_${product.product_id}_${qty}` },
-      ],
-      [{ text: "⬅️ Kembali", callback_data: "list_produk" }],
-    ],
-  };
-
-  await editMessage(chatId, msg.message_id, textDetail, keyboard);
+  await editMessage(chatId, msg.message_id, text, keyboard);
   return ok();
 }
 
@@ -305,43 +424,9 @@ export async function handleListProduk(ctx: BotContext): Promise<Response> {
     return ok();
   }
 
-  const totalCount = Number(products[0]?.total_count || 0);
-  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
-  const startIndex = (page - 1) * ITEMS_PER_PAGE;
+  const { text, keyboard } = buildProductList(products, page, ITEMS_PER_PAGE);
 
-  let textProduk = `<b>LIST PRODUCT</b>\n\n`;
-
-  products.forEach((p: any, i: number) => {
-    const nomor = startIndex + i + 1;
-    textProduk += `[${nomor}]. ${escapeHtml(p.name)} ( ${Number(
-      p.stock || 0
-    )} )\n`;
-  });
-
-  textProduk += `\n📄 Halaman ${page}/${totalPages}`;
-
-  const navRow: any[] = [];
-  if (page > 1) {
-    navRow.push({
-      text: "⬅️ Sebelumnya",
-      callback_data: `list_produk_page_${page - 1}`,
-    });
-  }
-  if (page < totalPages) {
-    navRow.push({
-      text: "➡️ Selanjutnya",
-      callback_data: `list_produk_page_${page + 1}`,
-    });
-  }
-
-  const keyboard = {
-    inline_keyboard: [
-      ...(navRow.length ? [navRow] : []),
-      [{ text: "🏠 Home", callback_data: "start" }],
-    ],
-  };
-
-  await send(chatId, textProduk, keyboard);
+  await send(chatId, text, keyboard);
   return ok();
 }
 
@@ -363,7 +448,7 @@ export async function handleListProdukPage(
 
   if (error) {
     console.error("LIST PRODUK PAGING RPC error:", error);
-    await send(chatId, "❌ Gagal mengambil daftar produk.");
+    await editMessage(chatId, msg.message_id, "❌ Gagal mengambil daftar produk.");
     return ok();
   }
 
@@ -374,42 +459,22 @@ export async function handleListProdukPage(
     return ok();
   }
 
-  const totalCount = Number(products[0]?.total_count || 0);
-  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
-  const startIndex = (page - 1) * ITEMS_PER_PAGE;
+  const { text, keyboard } = buildProductList(products, page, ITEMS_PER_PAGE);
 
-  let textProduk = `<b>LIST PRODUCT</b>\n\n`;
-
-  products.forEach((p: any, i: number) => {
-    const nomor = startIndex + i + 1;
-    textProduk += `[${nomor}]. ${escapeHtml(p.name)} ( ${Number(
-      p.stock || 0
-    )} )\n`;
-  });
-
-  textProduk += `\n📄 Halaman ${page}/${totalPages}`;
-
-  const navRow: any[] = [];
-  if (page > 1) {
-    navRow.push({
-      text: "⬅️ Sebelumnya",
-      callback_data: `list_produk_page_${page - 1}`,
-    });
-  }
-  if (page < totalPages) {
-    navRow.push({
-      text: "➡️ Selanjutnya",
-      callback_data: `list_produk_page_${page + 1}`,
-    });
-  }
-
-  const keyboard = {
-    inline_keyboard: [
-      ...(navRow.length ? [navRow] : []),
-      [{ text: "🏠 Home", callback_data: "start" }],
-    ],
-  };
-
-  await editMessage(chatId, msg.message_id, textProduk, keyboard);
+  await editMessage(chatId, msg.message_id, text, keyboard);
   return ok();
+}
+
+export async function handlePickProduct(
+  ctx: BotContext,
+  data: string
+): Promise<Response> {
+
+  const nomor = Number(
+    data.replace("pick_product_", "")
+  );
+
+  ctx.normalizedText = String(nomor);
+
+  return await handleProductNumberInput(ctx);
 }

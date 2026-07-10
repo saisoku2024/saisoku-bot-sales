@@ -1,6 +1,7 @@
 import { ENV } from "../../env.ts";
 import { supabase } from "../../supabase.ts";
 import { send, sendLongMessage } from "../../telegram.ts";
+import { isUserRestricted } from "../../user.repo.ts";
 
 import {
   escapeHtml,
@@ -74,9 +75,8 @@ export async function notifyAdminsOrOwners(
 
   const { data: rows, error } = await supabase
     .from("users")
-    .select("telegram_id")
-    .in("role", ["admin", "owner"])
-    .eq("is_banned", false);
+    .select("telegram_id, is_banned, is_active")
+    .in("role", ["admin", "owner"]);
 
   if (error) {
     console.error(
@@ -86,6 +86,8 @@ export async function notifyAdminsOrOwners(
   }
 
   for (const row of rows || []) {
+    if (isUserRestricted(row)) continue;
+
     if (row.telegram_id) {
       recipients.add(Number(row.telegram_id));
     }
@@ -182,7 +184,7 @@ export async function getSoldAccountsByOrderId(
         invoice
       )
     `)
-    .eq("transactions.invoice", orderId)
+    .like("transactions.invoice", `${orderId}%`)
     .order("created_at", {
       ascending: true,
     });

@@ -23,10 +23,12 @@ export async function send(chatId: number, text: string, kb?: unknown) {
 
   const result = await res.json();
 
-  if (!result.ok) {
-    console.error("TELEGRAM SEND ERROR:", result);
-    throw new Error(result.description || "Failed to send message");
-  }
+if (!result.ok) {
+  console.error("TELEGRAM SEND ERROR:", result);
+  throw new Error(result.description || "Failed to send message");
+}
+
+return result.result;
 }
 
 // ==========================

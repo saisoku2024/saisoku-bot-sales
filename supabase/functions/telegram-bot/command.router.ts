@@ -34,7 +34,7 @@ export async function routeCommand(
     "/voucherlist",
     "/addsaldo",
     "/addbalance",
-    "/kurangsaldo",
+    "/remsaldo",
   ]);
 
   if (managedAdminCommands.has(cmd)) {

@@ -63,6 +63,7 @@ export async function createUserIfNotExists(
       role: defaultRole,
       balance: 0,
       is_banned: false,
+      is_active: true,
     })
     .select()
     .single();
@@ -120,10 +121,22 @@ export async function getOrCreateUser(
   return user;
 }
 
+export function isUserRestricted(user: any) {
+  return Boolean(user?.is_banned) || user?.is_active === false;
+}
+
+export function getUserRestrictedMessage(user: any) {
+  if (user?.is_banned) {
+    return "Akun kamu sedang dibanned. Hubungi admin jika merasa ini kesalahan.";
+  }
+
+  return "Akun kamu sedang disuspend. Hubungi admin jika merasa ini kesalahan.";
+}
+
 export async function isUserBanned(telegramId: number) {
   const { data, error } = await supabase
     .from("users")
-    .select("is_banned")
+    .select("is_banned, is_active")
     .eq("telegram_id", telegramId)
     .maybeSingle();
 
@@ -132,7 +145,7 @@ export async function isUserBanned(telegramId: number) {
     return false;
   }
 
-  return Boolean(data?.is_banned);
+  return isUserRestricted(data);
 }
 
 export async function updateUserRole(
@@ -158,7 +171,7 @@ export async function updateUserBanStatus(
 ) {
   const { error } = await supabase
     .from("users")
-    .update({ is_banned: isBanned })
+    .update({ is_banned: isBanned, is_active: !isBanned })
     .eq("telegram_id", targetTelegramId);
 
   if (error) {

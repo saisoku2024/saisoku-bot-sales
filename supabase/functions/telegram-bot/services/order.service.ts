@@ -8,7 +8,12 @@ import {
   generateTrxCode,
   generateUniqueCode,
 } from "../helper.ts";
-import { getRoleByTelegramId, getUserIdByTelegramId } from "../user.repo.ts";
+import {
+  getRoleByTelegramId,
+  getUserIdByTelegramId,
+  getUserRestrictedMessage,
+  isUserRestricted,
+} from "../user.repo.ts";
 import type { BotContext } from "../context.ts";
 
 import {
@@ -150,8 +155,8 @@ export async function handleBuyNow(
     return ok();
   }
 
-  if (u.is_banned) {
-    await send(chatId, "❌ Akun kamu sedang dibanned.");
+  if (isUserRestricted(u)) {
+    await send(chatId, getUserRestrictedMessage(u));
     return ok();
   }
 
