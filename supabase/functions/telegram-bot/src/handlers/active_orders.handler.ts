@@ -63,6 +63,18 @@ function getFriendlyShortId(t: any): string {
   return `#${shortCode.toUpperCase()}`;
 }
 
+function getOrderTime(t: any): number {
+  return new Date(t.product_accounts?.sold_at || t.purchased_at || t.created_at || 0).getTime();
+}
+
+function sortNewestFirst(list: any[]) {
+  return list.sort((a: any, b: any) => getOrderTime(b) - getOrderTime(a));
+}
+
+function getRefundDurationDays(): number {
+  return 30;
+}
+
 async function getActiveTransactions(userId: string) {
   const { data, error } = await supabase
     .from("transactions")
@@ -100,8 +112,7 @@ async function getActiveTransactions(userId: string) {
     return actualExpiry > now;
   });
 
-  activeList.sort((a: any, b: any) => a.calculated_expired_at.getTime() - b.calculated_expired_at.getTime());
-  return activeList;
+  return sortNewestFirst(activeList);
 }
 
 export async function handleActiveOrdersList(ctx: BotContext, data = "active_orders"): Promise<Response> {
@@ -114,12 +125,7 @@ export async function handleActiveOrdersList(ctx: BotContext, data = "active_ord
     return ok();
   }
 
-  // Sort by purchased_at/created_at from newest to oldest
-  list.sort((a: any, b: any) => {
-    const timeA = new Date(a.product_accounts?.sold_at || a.purchased_at || a.created_at).getTime();
-    const timeB = new Date(b.product_accounts?.sold_at || b.purchased_at || b.created_at).getTime();
-    return timeB - timeA;
-  });
+  sortNewestFirst(list);
 
   let page = 1;
   if (data.startsWith("active_orders_page_")) {
@@ -194,6 +200,8 @@ export async function handleExportRekapTxt(ctx: BotContext): Promise<Response> {
     await send(chatId, "📂 Tidak ada order aktif untuk diekspor.");
     return ok();
   }
+
+  sortNewestFirst(list);
 
   const now = new Date();
   const ts = now.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "medium" });
@@ -525,15 +533,12 @@ function getRemainingDays(t: any): number {
   const baseDateStr = t.product_accounts?.sold_at || t.purchased_at || t.created_at;
   if (!baseDateStr) return 0;
   const baseDate = new Date(baseDateStr);
-  const durDays = Number(t.products?.duration_days || 30);
-  const calculatedExpiry = new Date(baseDate.getTime() + durDays * 24 * 60 * 60 * 1000);
-  const expiryDate = t.expired_at ? new Date(t.expired_at) : calculatedExpiry;
+  const durDays = getRefundDurationDays();
 
   const startStr = formatDateYMD(baseDate);
-  const expiryStr = formatDateYMD(expiryDate);
   const nowStr = formatDateYMD(new Date());
 
-  const dur = daysBetweenInclusive(startStr, expiryStr);
+  const dur = durDays;
   let used = daysBetweenInclusive(startStr, nowStr);
   used = Math.min(Math.max(0, used), dur);
   return Math.max(0, dur - used);
@@ -554,12 +559,7 @@ export async function handleRefundCalculatorStart(ctx: BotContext, data = "calc_
     return ok();
   }
 
-  // Sort by purchased_at/created_at from newest to oldest
-  activeOnlyList.sort((a: any, b: any) => {
-    const timeA = new Date(a.product_accounts?.sold_at || a.purchased_at || a.created_at).getTime();
-    const timeB = new Date(b.product_accounts?.sold_at || b.purchased_at || b.created_at).getTime();
-    return timeB - timeA;
-  });
+  sortNewestFirst(activeOnlyList);
 
   let page = 1;
   if (data.startsWith("calc_refund_page_")) {
@@ -678,7 +678,7 @@ export async function handleRefundCalculatorOutput(ctx: BotContext, data: string
   const baseDateStr = t.product_accounts?.sold_at || t.purchased_at || t.created_at;
   const baseDate = baseDateStr ? new Date(baseDateStr) : new Date();
   
-  const durDays = Number(t.products?.duration_days || 30);
+  const durDays = getRefundDurationDays();
   const calculatedExpiry = new Date(baseDate.getTime() + durDays * 24 * 60 * 60 * 1000);
   const expiryDate = t.expired_at ? new Date(t.expired_at) : calculatedExpiry;
 
@@ -691,7 +691,7 @@ export async function handleRefundCalculatorOutput(ctx: BotContext, data: string
     return ok();
   }
 
-  const dur = Number(t.products?.duration_days || 30);
+  const dur = getRefundDurationDays();
   let used = daysBetweenInclusive(startStr, nowStr);
   used = Math.min(Math.max(0, used), dur);
   const left = Math.max(0, dur - used);

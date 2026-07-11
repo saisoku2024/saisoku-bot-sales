@@ -15,7 +15,7 @@ export async function routeMessage(
     .from("ticket_sessions")
     .select("*")
     .eq("telegram_id", ctx.telegramId)
-    .single();
+    .maybeSingle();
 
   if (ticketSession) {
     const { handleTicketInput } = await import("./src/handlers/ticket.handler.ts");
@@ -26,7 +26,7 @@ export async function routeMessage(
     .from("search_sessions")
     .select("*")
     .eq("telegram_id", ctx.telegramId)
-    .single();
+    .maybeSingle();
 
   if (searchSession) {
     const { handleSearchOrderInput } = await import("./src/handlers/active_orders.handler.ts");
@@ -37,7 +37,7 @@ export async function routeMessage(
     .from("warranty_sessions")
     .select("*")
     .eq("telegram_id", ctx.telegramId)
-    .single();
+    .maybeSingle();
 
   if (warrantySession) {
     const { handleWarrantyPhotoInput, handleWarrantyDescriptionInput } = await import("./src/handlers/active_orders.handler.ts");

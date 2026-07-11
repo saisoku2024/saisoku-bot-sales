@@ -239,7 +239,7 @@ export async function handleQtyCustomInput(ctx: BotContext): Promise<Response> {
     .from("qty_sessions")
     .select("*")
     .eq("telegram_id", telegramId)
-    .single();
+    .maybeSingle();
 
   if (!session) {
     // Jika tidak ada session, berarti user mengetik angka untuk memilih produk

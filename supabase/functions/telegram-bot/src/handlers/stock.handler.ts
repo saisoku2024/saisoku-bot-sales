@@ -229,7 +229,7 @@ export async function handleUploadStockFile(
     .from("upload_sessions")
     .select("product_id")
     .eq("telegram_id", telegramId)
-    .single();
+    .maybeSingle();
 
   if (!session) {
     await send(chatId, "❌ Session upload tidak ditemukan");

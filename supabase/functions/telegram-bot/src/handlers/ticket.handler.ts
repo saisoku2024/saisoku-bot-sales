@@ -47,7 +47,7 @@ export async function handleTicketInput(ctx: BotContext): Promise<Response> {
     .from("ticket_sessions")
     .select("*")
     .eq("telegram_id", telegramId)
-    .single();
+    .maybeSingle();
 
   if (!session) {
     return ok();
