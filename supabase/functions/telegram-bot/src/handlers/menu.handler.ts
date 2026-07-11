@@ -260,13 +260,24 @@ export async function handleMenuLain(
   const { chatId } = ctx;
 
   const keyboard = {
-  inline_keyboard: [
-    [{ text: "👤 Profil", callback_data: "profil" }],
-    [{ text: "📂 Riwayat Transaksi", callback_data: "riwayat" }],
-    [{ text: "⭐ Produk Populer", callback_data: "populer" }],
-    [{ text: "⬅️ Kembali", callback_data: "start" }],
-  ],
-};
+    inline_keyboard: [
+      [
+        { text: "👤 Profil", callback_data: "profil" },
+        { text: "📦 Order Aktif", callback_data: "active_orders" },
+      ],
+      [
+        { text: "🧮 Kalkulator Refund", callback_data: "calc_refund" },
+        { text: "📂 Riwayat", callback_data: "riwayat" },
+      ],
+      [
+        { text: "⭐ Produk Populer", callback_data: "populer" },
+        { text: "🎫 Hubungi Admin", callback_data: "ticket" },
+      ],
+      [
+        { text: "⬅️ Kembali", callback_data: "start" },
+      ],
+    ],
+  };
 
   await send(
     chatId,

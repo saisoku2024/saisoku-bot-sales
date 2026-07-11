@@ -41,7 +41,7 @@ export async function routeCallback(
 
   if (!data) return null;
 
-  if (data === "ignore") {
+  if (data === "ignore" || data === "noop") {
     return new Response("ok");
   }
 
@@ -54,6 +54,59 @@ export async function routeCallback(
   if (data === "menu_lain") return await handlers.handleMenuLain(ctx);
   if (data === "profil") return await handlers.handleProfile(ctx);
   if (data === "list_produk") return await handlers.handleListProduk(ctx);
+  if (data === "ticket") {
+    const { handleTicketMenu } = await import("./src/handlers/ticket.handler.ts");
+    return await handleTicketMenu(ctx);
+  }
+  if (data === "cancel_ticket_session") {
+    const { handleCancelTicketSession } = await import("./src/handlers/ticket.handler.ts");
+    return await handleCancelTicketSession(ctx);
+  }
+  if (data.startsWith("resolve_ticket_")) {
+    const { handleResolveTicketUser } = await import("./src/handlers/ticket.handler.ts");
+    return await handleResolveTicketUser(ctx, data);
+  }
+
+  if (data === "active_orders" || data.startsWith("active_orders_page_")) {
+    const { handleActiveOrdersList } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleActiveOrdersList(ctx, data);
+  }
+  if (data === "rekap_txt") {
+    const { handleExportRekapTxt } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleExportRekapTxt(ctx);
+  }
+  if (data.startsWith("view_order_detail_")) {
+    const { handleViewOrderDetail } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleViewOrderDetail(ctx, data);
+  }
+  if (data.startsWith("claim_warranty_menu_")) {
+    const { handleClaimWarrantyMenu } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleClaimWarrantyMenu(ctx, data);
+  }
+  if (data.startsWith("apply_warranty_claim_")) {
+    const { handleApplyWarrantyClaim } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleApplyWarrantyClaim(ctx, data);
+  }
+  if (data === "cancel_warranty_session") {
+    const { handleCancelWarrantySession } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleCancelWarrantySession(ctx);
+  }
+  if (data === "search_order_start") {
+    const { handleSearchOrderStart } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleSearchOrderStart(ctx);
+  }
+  if (data === "calc_refund" || data.startsWith("calc_refund_page_")) {
+    const { handleRefundCalculatorStart } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleRefundCalculatorStart(ctx, data);
+  }
+  if (data.startsWith("calc_refund_select_")) {
+    const { handleRefundCalculatorSelectOrder } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleRefundCalculatorSelectOrder(ctx, data);
+  }
+  if (data.startsWith("calc_refund_coef_")) {
+    const { handleRefundCalculatorOutput } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleRefundCalculatorOutput(ctx, data);
+  }
 
   if (data.startsWith("list_produk_page_")) {
     return await handlers.handleListProdukPage(ctx, data);

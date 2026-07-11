@@ -22,6 +22,11 @@ export async function routeCommand(
     return await handlers.handleClaimVoucherCommand(ctx);
   }
 
+  if (cmd === "/tiket" || cmd === "/ticket") {
+    const { handleTicketMenu } = await import("./src/handlers/ticket.handler.ts");
+    return await handleTicketMenu(ctx);
+  }
+
   const managedAdminCommands = new Set([
     "/setrole",
     "/addvoucher",

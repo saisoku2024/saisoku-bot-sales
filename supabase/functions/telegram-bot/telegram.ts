@@ -201,6 +201,39 @@ export async function sendLongMessage(
 }
 
 // ==========================
+// SEND DOCUMENT
+// ==========================
+export async function sendDocument(
+  chatId: number,
+  content: string,
+  filename: string,
+  caption?: string
+) {
+  const blob = new Blob([content], { type: "text/plain" });
+  const formData = new FormData();
+  formData.append("chat_id", String(chatId));
+  formData.append("document", blob, filename);
+  if (caption) {
+    formData.append("caption", caption);
+  }
+
+  const res = await fetch(
+    `https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  const result = await res.json();
+
+  if (!result.ok) {
+    console.error("TELEGRAM SEND DOCUMENT ERROR:", result);
+    throw new Error(result.description || "Failed to send document");
+  }
+}
+
+// ==========================
 // GET TELEGRAM FILE
 // ==========================
 export async function getTelegramFile(fileId: string) {
