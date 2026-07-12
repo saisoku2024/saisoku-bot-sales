@@ -8,6 +8,82 @@ function ok() {
   return new Response("ok");
 }
 
+function formatTicketDate(date: Date): string {
+  const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  const dd = String(wibDate.getUTCDate()).padStart(2, "0");
+  const mm = String(wibDate.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = wibDate.getUTCFullYear();
+  const hh = String(wibDate.getUTCHours()).padStart(2, "0");
+  const min = String(wibDate.getUTCMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+function formatTicketDateCode(date: Date): string {
+  const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  const yyyy = wibDate.getUTCFullYear();
+  const mm = String(wibDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(wibDate.getUTCDate()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}`;
+}
+
+function buildTicketCode(ticket: any, orderId = "GENERAL"): string {
+  const date = ticket?.created_at ? new Date(ticket.created_at) : new Date();
+  const orderSegment = String(orderId || "GENERAL")
+    .replace(/^#/, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase()
+    .slice(0, 8) || "GENERAL";
+  const serial = String(ticket?.id || 0).padStart(6, "0");
+  return `SID${formatTicketDateCode(date)}-${orderSegment}-${serial}`;
+}
+
+function buildTicketNotificationText(params: {
+  ticket: any;
+  orderId?: string;
+  status: "open" | "assigned" | "resolved";
+  userMessage: string;
+  adminResponse?: string;
+  footer: string;
+}) {
+  const createdAt = params.ticket?.created_at ? new Date(params.ticket.created_at) : new Date();
+  const resolvedAt =
+    params.status === "resolved"
+      ? formatTicketDate(new Date(params.ticket?.resolved_at || new Date()))
+      : "PENDING";
+  const statusText =
+    params.status === "resolved"
+      ? "✅ [ RESOLVED ]"
+      : params.status === "assigned"
+      ? "🟦 [ ASSIGNED ]"
+      : "⏳ [ OPEN ]";
+  const ticketCode = buildTicketCode(params.ticket, params.orderId || "GENERAL");
+  const orderId = params.orderId || "-";
+  const response = params.adminResponse || "(Menunggu balasan admin...)";
+
+  return `<b>[ TICKET NOTIFICATION ]</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ <b>TICKET ID</b>    : <code>${escapeHtml(ticketCode)}</code>
+▶ <b>ORDER ID</b>     : <code>${escapeHtml(orderId)}</code>
+▶ <b>STATUS</b>       : ${statusText}
+
+<b>LOG AKTIVITAS</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[+] Dibuat     : ${formatTicketDate(createdAt)}
+[-] Selesai    : ${resolvedAt}
+
+<b>PESAN DARI USER</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+&quot;${escapeHtml(params.userMessage)}&quot;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<b>RESPON ADMIN</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${escapeHtml(response)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<i>${escapeHtml(params.footer)}</i>`;
+}
+
 export async function handleTicketMenu(ctx: BotContext): Promise<Response> {
   const { chatId, telegramId } = ctx;
 
@@ -88,13 +164,13 @@ export async function handleTicketInput(ctx: BotContext): Promise<Response> {
     console.error("CREATE TICKET REPLY ERROR:", replyError);
   }
 
-  const userText = `✅ <b>TIKET BERHASIL DIKIRIM!</b>
-
-└ Tiket ID : <code>#${ticket.id}</code>
-└ Status : <b>Open</b>
-└ Pesan : <i>${escapeHtml(normalizedText)}</i>
-
-Admin telah dinotifikasi dan akan segera membalas tiket Anda.`;
+  const ticketCode = buildTicketCode(ticket);
+  const userText = buildTicketNotificationText({
+    ticket,
+    status: "open",
+    userMessage: normalizedText,
+    footer: "Admin telah dinotifikasi. Harap tunggu balasan selanjutnya.",
+  });
 
   await send(chatId, userText);
 
@@ -104,7 +180,7 @@ Admin telah dinotifikasi dan akan segera membalas tiket Anda.`;
 Aktor: ${adminUsername}
 ID: <code>${telegramId}</code>
 
-└ Tiket ID : <code>#${ticket.id}</code>
+└ Tiket ID : <code>${escapeHtml(ticketCode)}</code>
 └ Masalah : <i>${escapeHtml(normalizedText)}</i>
 
 Tanggapi tiket ini melalui Dashboard Web Admin pada menu Tickets.`;

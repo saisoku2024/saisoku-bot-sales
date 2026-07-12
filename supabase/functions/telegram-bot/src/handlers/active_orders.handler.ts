@@ -30,6 +30,50 @@ function formatWIB(date: Date): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${min} WIB`;
 }
 
+function formatTicketDateDisplay(date: Date): string {
+  const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  const dd = String(wibDate.getUTCDate()).padStart(2, "0");
+  const mm = String(wibDate.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = wibDate.getUTCFullYear();
+  const hh = String(wibDate.getUTCHours()).padStart(2, "0");
+  const min = String(wibDate.getUTCMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+function buildTicketNotificationText(params: {
+  ticketCode: string;
+  orderId: string;
+  createdAt: Date;
+  userMessage: string;
+  adminResponse?: string;
+  footer: string;
+}): string {
+  const response = params.adminResponse || "(Menunggu balasan admin...)";
+
+  return `<b>[ TICKET NOTIFICATION ]</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ <b>TICKET ID</b>    : <code>${escapeHtml(params.ticketCode)}</code>
+▶ <b>ORDER ID</b>     : <code>${escapeHtml(params.orderId)}</code>
+▶ <b>STATUS</b>       : ⏳ [ OPEN ]
+
+<b>LOG AKTIVITAS</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[+] Dibuat     : ${formatTicketDateDisplay(params.createdAt)}
+[-] Selesai    : PENDING
+
+<b>PESAN DARI USER</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+&quot;${escapeHtml(params.userMessage)}&quot;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<b>RESPON ADMIN</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${escapeHtml(response)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<i>${escapeHtml(params.footer)}</i>`;
+}
+
 function formatDateYMD(date: Date): string {
   const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
   const yyyy = wibDate.getUTCFullYear();
@@ -496,7 +540,7 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
   orderHash = orderHash.toUpperCase();
 
   const paddedSerial = String(ticket.id).padStart(6, "0");
-  const customTicketId = `#${ticket.id} - [SID${yyyy}${mm}${dd}-${orderHash}-${paddedSerial}]`;
+  const customTicketCode = `SID${yyyy}${mm}${dd}-${orderHash}-${paddedSerial}`;
 
   // Notify admins
   const username = user.username ? `@${escapeHtml(user.username)}` : `User ${telegramId}`;
@@ -505,7 +549,7 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
 Aktor: ${username}
 ID Telegram: <code>${telegramId}</code>
 
-└ Tiket ID : <b>${customTicketId}</b>
+└ Tiket ID : <b>#${ticket.id} - [${customTicketCode}]</b>
 └ Order ID : <code>${shortId}</code>
 └ Produk : <b>${escapeHtml(prodName)}</b>
 └ Total Klaim : <b>${(sa?.warranty_claim_count ?? 0) + 1}x</b>
@@ -516,14 +560,13 @@ Silakan tindak lanjuti melalui panel admin.`;
   const { notifyAdminsOrOwners } = await import("../../services/order/order.helper.ts");
   await notifyAdminsOrOwners(adminText);
 
-  const userSuccessText = `✅ <b>TIKET BERHASIL DIKIRIM!</b>
-
-└ Tiket ID : <code>${customTicketId}</code>
-└ ORDER ID : <code>${shortId}</code>
-└ Status : <b>Open</b>
-└ Pesan : <i>${escapeHtml(description)}</i>
-
-Admin telah dinotifikasi dan akan segera membalas tiket Anda.`;
+  const userSuccessText = buildTicketNotificationText({
+    ticketCode: customTicketCode,
+    orderId: shortId.replace(/^#/, ""),
+    createdAt: date,
+    userMessage: description,
+    footer: "Admin telah dinotifikasi. Harap tunggu balasan selanjutnya.",
+  });
 
   await send(chatId, userSuccessText);
   return ok();
