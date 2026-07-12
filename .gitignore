@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+
+supabase/.temp/
+supabase/functions/*/.temp/
+supabase/functions/**/.temp/
+
+*.zip
+*.log
