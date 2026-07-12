@@ -21,6 +21,37 @@ export async function claimVoucherByCode(
     return;
   }
 
+  const { data: userRoleData, error: userRoleError } = await supabase
+    .from("users")
+    .select("role")
+    .eq("telegram_id", telegramId)
+    .maybeSingle();
+
+  if (userRoleError || !userRoleData) {
+    console.error("claimVoucher role lookup error:", userRoleError);
+    await send(chatId, "❌ Gagal memvalidasi role pengguna.");
+    return;
+  }
+
+  const { data: voucherData, error: voucherError } = await supabase
+    .from("vouchers")
+    .select("target_role")
+    .eq("code", code)
+    .maybeSingle();
+
+  if (voucherError) {
+    console.error("claimVoucher target role lookup error:", voucherError);
+    await send(chatId, "❌ Gagal memvalidasi voucher.");
+    return;
+  }
+
+  const userRole = String(userRoleData.role || "reguler").toLowerCase();
+  const targetRole = String(voucherData?.target_role || "both").toLowerCase();
+  if (targetRole !== "both" && targetRole !== userRole) {
+    await send(chatId, `❌ Voucher ini hanya berlaku untuk role ${escapeHtml(targetRole)}.`);
+    return;
+  }
+
   const { data, error } = await supabase.rpc("claim_voucher_by_code", {
     p_telegram_id: telegramId,
     p_code: code,
@@ -44,6 +75,8 @@ export async function claimVoucherByCode(
     `✅ <b>VOUCHER BERHASIL</b>
 
 └ Kode : <code>${escapeHtml(code)}</code>
+└ Tipe : Deposit Bonus
+└ Berlaku : ${escapeHtml(targetRole)}
 └ Bonus : ${rupiah(Number(result.reward_amount || 0))}
 └ Saldo : ${rupiah(Number(result.new_balance || 0))}`
   );
@@ -55,7 +88,7 @@ export async function claimVoucherByCode(
 export async function handleVoucherList(chatId: number) {
   const { data: vouchers } = await supabase
     .from("vouchers")
-    .select("*")
+      .select("*")
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -71,6 +104,7 @@ export async function handleVoucherList(chatId: number) {
 
 ${i + 1}. <code>${v.code}</code>
 └ Nominal : ${rupiah(Number(v.reward_amount || 0))}
+└ Berlaku : ${escapeHtml(v.target_role || "both")}
 └ Kuota : ${v.used_count}/${v.quota}
 └ Status : ${v.is_active ? "aktif" : "nonaktif"}`;
   });
