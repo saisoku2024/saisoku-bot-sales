@@ -6,6 +6,41 @@ import {
   escapeHtml,
 } from "../helper.ts";
 
+async function auditVoucherBalanceLog(params: {
+  userId: string;
+  code: string;
+  rewardAmount: number;
+  newBalance: number;
+}) {
+  const referenceId = `VOUCHER:${params.code}`;
+
+  const { data: existingLog, error: lookupError } = await supabase
+    .from("balance_logs")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("reference_id", referenceId)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("voucher balance log lookup error:", lookupError);
+    return;
+  }
+
+  if (existingLog) return;
+
+  const { error } = await supabase.from("balance_logs").insert({
+    user_id: params.userId,
+    amount: params.rewardAmount,
+    type: "voucher_claim",
+    reference_id: referenceId,
+    note: `Voucher deposit bonus ${params.code}. Saldo akhir: ${rupiah(params.newBalance)}`,
+  });
+
+  if (error) {
+    console.error("voucher balance log insert error:", error);
+  }
+}
+
 // ===============================
 // CLAIM VOUCHER
 // ===============================
@@ -23,7 +58,7 @@ export async function claimVoucherByCode(
 
   const { data: userRoleData, error: userRoleError } = await supabase
     .from("users")
-    .select("role")
+    .select("id, role")
     .eq("telegram_id", telegramId)
     .maybeSingle();
 
@@ -69,6 +104,13 @@ export async function claimVoucherByCode(
     await send(chatId, `❌ ${result?.message || "Klaim voucher gagal."}`);
     return;
   }
+
+  await auditVoucherBalanceLog({
+    userId: userRoleData.id,
+    code,
+    rewardAmount: Number(result.reward_amount || 0),
+    newBalance: Number(result.new_balance || 0),
+  });
 
   await send(
     chatId,
