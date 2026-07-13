@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.ts";
+import { ENV } from "./env.ts";
 
 type BotErrorLogInput = {
   source?: string;
@@ -11,6 +12,12 @@ type BotErrorLogInput = {
 };
 
 const sensitiveKeyPattern = /(password|token|secret|key|authorization|credential|pin)/i;
+
+function normalizeDrainUrl(value: string) {
+  const text = value.trim();
+  if (!text) return "";
+  return /^https?:\/\//i.test(text) ? text : `https://${text}`;
+}
 
 function truncate(value: string | null | undefined, maxLength: number) {
   if (!value) return null;
@@ -48,24 +55,55 @@ export function getBotErrorMessage(error: unknown) {
 }
 
 export async function logBotError(input: BotErrorLogInput) {
+  const payload = {
+    source: truncate(input.source || "telegram-bot", 120),
+    level: input.level || "error",
+    message: truncate(input.message, 500) || "Unknown bot error",
+    stack: truncate(input.stack, 2000),
+    route: truncate(input.route, 240),
+    actor: input.actor === undefined || input.actor === null
+      ? null
+      : truncate(String(input.actor), 240),
+    metadata: input.metadata ? redact(input.metadata) : null,
+  };
+
   try {
-    const { error } = await supabase.from("error_logs").insert({
-      source: truncate(input.source || "telegram-bot", 120),
-      level: input.level || "error",
-      message: truncate(input.message, 500) || "Unknown bot error",
-      stack: truncate(input.stack, 2000),
-      route: truncate(input.route, 240),
-      actor: input.actor === undefined || input.actor === null
-        ? null
-        : truncate(String(input.actor), 240),
-      metadata: input.metadata ? redact(input.metadata) : null,
-    });
+    const { error } = await supabase.from("error_logs").insert(payload);
 
     if (error) {
       console.error("logBotError insert error:", error);
     }
   } catch (logError) {
     console.error("logBotError error:", logError);
+  }
+
+  const drainUrl = normalizeDrainUrl(ENV.BETTER_STACK_INGESTING_HOST);
+  if (!drainUrl) return;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1500);
+
+  try {
+    await fetch(drainUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(ENV.BETTER_STACK_SOURCE_TOKEN
+          ? { Authorization: `Bearer ${ENV.BETTER_STACK_SOURCE_TOKEN}` }
+          : {}),
+      },
+      body: JSON.stringify({
+        ...payload,
+        service: "saisoku-telegram-bot",
+        environment: "supabase-edge",
+        dt: new Date().toISOString(),
+      }),
+      signal: controller.signal,
+    });
+  } catch (externalError) {
+    console.error("logBotError external drain error:", externalError);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

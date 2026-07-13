@@ -10,6 +10,17 @@ export const ENV = {
     Deno.env.get("START_IMAGE_URL") ||
     "https://i.ibb.co.com/xttnhqVg/photo-2024-11-08-05-16-02.jpg",
   OWNER_TELEGRAM_ID: Number(Deno.env.get("OWNER_TELEGRAM_ID") || 0),
+  BETTER_STACK_INGESTING_HOST:
+    Deno.env.get("BETTER_STACK_INGESTING_HOST") ||
+    Deno.env.get("BETTER_STACK_ENDPOINT") ||
+    Deno.env.get("ERROR_LOG_DRAIN_URL") ||
+    Deno.env.get("LOGTAIL_INGEST_URL") ||
+    "",
+  BETTER_STACK_SOURCE_TOKEN:
+    Deno.env.get("BETTER_STACK_SOURCE_TOKEN") ||
+    Deno.env.get("ERROR_LOG_DRAIN_TOKEN") ||
+    Deno.env.get("LOGTAIL_SOURCE_TOKEN") ||
+    "",
 };
 
 // Validasi penting
