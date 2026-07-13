@@ -28,6 +28,7 @@ import { routeCommand } from "./command.router.ts";
 import { routeCallback } from "./callback.router.ts";
 import { routeMessage } from "./message.router.ts";
 import { handleClaimVoucherCommand } from "./src/handlers/voucher.handler.ts";
+import { logCaughtBotError } from "./error-logger.ts";
 
 import {
   handleCreateDepositInvoice,
@@ -84,6 +85,22 @@ function ok() {
   return new Response("ok");
 }
 
+function getUpdateMeta(body: any) {
+  const callback = body?.callback_query;
+  const message = body?.message;
+  const msg = message || callback?.message;
+
+  return {
+    update_id: body?.update_id ?? null,
+    update_type: callback ? "callback_query" : message ? "message" : "unknown",
+    chat_id: msg?.chat?.id ?? null,
+    telegram_id: message?.from?.id || callback?.from?.id || null,
+    username: message?.from?.username || callback?.from?.username || null,
+    callback_data: callback?.data ? String(callback.data).slice(0, 160) : null,
+    text: message?.text ? String(message.text).slice(0, 160) : null,
+  };
+}
+
 // ===============================
 // SERVER
 // ===============================
@@ -99,6 +116,8 @@ serve(async (req: Request) => {
     return new Response("unauthorized", { status: 401 });
   }
 
+  let updateMeta: Record<string, unknown> = {};
+
   try {
     const contentType = req.headers.get("content-type")?.toLowerCase() || "";
     if (!contentType.includes("application/json")) {
@@ -106,6 +125,7 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
+    updateMeta = getUpdateMeta(body);
 
     const callback = body.callback_query;
     if (callback) {
@@ -113,6 +133,11 @@ serve(async (req: Request) => {
         await answerCallback(callback.id);
       } catch (err) {
         console.error("answerCallback error:", err);
+        await logCaughtBotError(err, {
+          route: "telegram.answerCallback",
+          actor: callback?.from?.id || null,
+          metadata: getUpdateMeta(body),
+        });
       }
     }
 
@@ -198,6 +223,10 @@ serve(async (req: Request) => {
     return ok();
   } catch (err) {
     console.error("WEBHOOK ERROR:", err);
+    await logCaughtBotError(err, {
+      route: "telegram.webhook",
+      metadata: { request_id: req.headers.get("x-request-id"), ...updateMeta },
+    });
     return ok();
   }
 });

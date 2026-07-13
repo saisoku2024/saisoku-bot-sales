@@ -1,5 +1,6 @@
 import { ENV } from "./env.ts";
 import { splitMessage } from "./helper.ts";
+import { logBotError, logCaughtBotError } from "./error-logger.ts";
 
 const BOT_TOKEN = ENV.TELEGRAM_BOT_TOKEN;
 
@@ -25,6 +26,12 @@ export async function send(chatId: number, text: string, kb?: unknown) {
 
 if (!result.ok) {
   console.error("TELEGRAM SEND ERROR:", result);
+  await logBotError({
+    route: "telegram.sendMessage",
+    actor: chatId,
+    message: String(result.description || "Failed to send message"),
+    metadata: { ok: result.ok, error_code: result.error_code },
+  });
   throw new Error(result.description || "Failed to send message");
 }
 
@@ -59,6 +66,12 @@ export async function sendPhoto(
 
   if (!result.ok) {
     console.error("TELEGRAM SEND PHOTO ERROR:", result);
+    await logBotError({
+      route: "telegram.sendPhoto",
+      actor: chatId,
+      message: String(result.description || "Failed to send photo"),
+      metadata: { ok: result.ok, error_code: result.error_code },
+    });
     throw new Error(result.description || "Failed to send photo");
   }
 }
@@ -99,6 +112,11 @@ export async function editMessage(
     return true;
   } catch (err) {
     console.error("editMessage error:", err);
+    await logCaughtBotError(err, {
+      route: "telegram.editMessage",
+      actor: chatId,
+      metadata: { message_id: msgId },
+    });
     return false;
   }
 }
@@ -143,6 +161,11 @@ export async function editCaption(
     return true;
   } catch (err) {
     console.error("editCaption error:", err);
+    await logCaughtBotError(err, {
+      route: "telegram.editCaption",
+      actor: chatId,
+      metadata: { message_id: msgId },
+    });
     return false;
   }
 }
@@ -180,6 +203,10 @@ export async function answerCallback(id: string) {
     return true;
   } catch (err) {
     console.error("answerCallback error:", err);
+    await logCaughtBotError(err, {
+      route: "telegram.answerCallback",
+      actor: id,
+    });
     return false;
   }
 }
@@ -229,6 +256,12 @@ export async function sendDocument(
 
   if (!result.ok) {
     console.error("TELEGRAM SEND DOCUMENT ERROR:", result);
+    await logBotError({
+      route: "telegram.sendDocument",
+      actor: chatId,
+      message: String(result.description || "Failed to send document"),
+      metadata: { ok: result.ok, error_code: result.error_code, filename },
+    });
     throw new Error(result.description || "Failed to send document");
   }
 }
