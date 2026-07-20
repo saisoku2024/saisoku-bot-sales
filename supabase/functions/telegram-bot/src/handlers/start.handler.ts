@@ -56,13 +56,13 @@ Selamat datang di SAISOKU.ID
   ],
   [
     { text: "🎮 Mini Games", callback_data: "daily_absen" },
-    { text: "🔵 Menu Lain", callback_data: "menu_lain" },
+    { text: "⚙️ Menu Lain", callback_data: "menu_lain" },
   ],
 ];
 
 if (role === "reguler" || role === "regular" || role === "reseller") {
   keyboardRows.unshift([
-    { text: "🟠 Promo Aktif", callback_data: "promo_aktif" },
+    { text: "🔥 Promo Aktif", callback_data: "promo_aktif" },
   ]);
 }
 
@@ -72,7 +72,7 @@ if (
 ) {
   keyboardRows.push([
     {
-      text: "🟡 Stock",
+      text: "📦 Stock",
       callback_data: "stock_menu",
     },
   ]);

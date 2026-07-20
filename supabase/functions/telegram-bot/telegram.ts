@@ -16,11 +16,24 @@ function getButtonStyle(button: InlineKeyboardButtonLike): TelegramButtonStyle |
   const callbackData = String(button.callback_data || "").toLowerCase();
 
   if (
-    text.includes("batal") ||
+    text.includes("promo") ||
+    callbackData.includes("promo")
+  ) {
+    return "danger";
+  }
+
+  if (
+    text.includes("home") ||
     text.includes("kembali") ||
+    text.includes("back") ||
+    callbackData === "start"
+  ) {
+    return "success";
+  }
+
+  if (
     text.includes("hapus") ||
     text.includes("tolak") ||
-    callbackData.includes("cancel") ||
     callbackData.includes("delete") ||
     callbackData.includes("reject")
   ) {
@@ -28,35 +41,16 @@ function getButtonStyle(button: InlineKeyboardButtonLike): TelegramButtonStyle |
   }
 
   if (
-    text.includes("home") ||
     text.includes("list produk") ||
-    text.includes("saldo") ||
-    text.includes("mini games") ||
-    text.includes("profil") ||
     text.includes("sudah bayar") ||
     text.includes("approve") ||
     text.includes("konfirmasi") ||
-    callbackData === "start" ||
-    callbackData === "list_produk" ||
-    callbackData === "saldo"
+    callbackData === "list_produk"
   ) {
     return "success";
   }
 
-  if (
-    text.includes("menu lain") ||
-    text.includes("stock") ||
-    text.includes("promo") ||
-    text.includes("tutorial") ||
-    text.includes("cek stok") ||
-    text.includes("refresh") ||
-    callbackData.includes("stock") ||
-    callbackData.includes("promo")
-  ) {
-    return "primary";
-  }
-
-  return undefined;
+  return "primary";
 }
 
 function applyInlineButtonStyles(kb?: unknown): unknown {

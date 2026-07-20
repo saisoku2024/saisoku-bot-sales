@@ -238,7 +238,7 @@ export async function handleActiveOrdersList(ctx: BotContext, data = "active_ord
     { text: "📄 Rekap TXT", callback_data: "rekap_txt" },
   ]);
   inlineKeyboard.push([
-    { text: "🔴 Kembali", callback_data: "menu_lain" },
+    { text: "⬅️ Kembali", callback_data: "menu_lain" },
   ]);
 
   if (ctx.callback) {
@@ -348,7 +348,7 @@ export async function handleViewOrderDetail(ctx: BotContext, data: string): Prom
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔴 Kembali ke List", callback_data: "active_orders" }],
+      [{ text: "⬅️ Kembali ke List", callback_data: "active_orders" }],
     ],
   };
 
@@ -378,7 +378,7 @@ Apakah Anda ingin melakukan klaim garansi untuk order ini? Admin akan meninjau d
   const keyboard = {
     inline_keyboard: [
       [{ text: "✅ Ajukan Klaim", callback_data: `apply_warranty_claim_${trxId}` }],
-      [{ text: "🔴 Batal", callback_data: "active_orders" }],
+      [{ text: "⬅️ Batal", callback_data: "active_orders" }],
     ],
   };
 
@@ -406,7 +406,7 @@ Silakan kirimkan foto/screenshot bukti kendala pada akun Anda secara langsung di
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔴 Batalkan Sesi", callback_data: "cancel_warranty_session" }],
+      [{ text: "❌ Batalkan Sesi", callback_data: "cancel_warranty_session" }],
     ],
   };
 
@@ -454,7 +454,7 @@ Silakan ketikkan deskripsi/keterangan kendala akun Anda secara langsung di chat 
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔴 Batalkan Sesi", callback_data: "cancel_warranty_session" }],
+      [{ text: "❌ Batalkan Sesi", callback_data: "cancel_warranty_session" }],
     ],
   };
 
@@ -661,7 +661,7 @@ export async function handleRefundCalculatorStart(ctx: BotContext, data = "calc_
   }
 
   inlineKeyboard.push([
-    { text: "🔴 Kembali", callback_data: "menu_lain" },
+    { text: "⬅️ Kembali", callback_data: "menu_lain" },
   ]);
 
   if (ctx.callback) {
@@ -698,7 +698,7 @@ Pilih berapa kali akun ini telah diklaim garansinya atau status klaim saat ini u
       { text: "Klaim 3x (0.70)", callback_data: `calc_refund_coef_${trxId}_0.70` },
     ],
     [
-      { text: "🔴 Batal", callback_data: "calc_refund" },
+      { text: "⬅️ Batal", callback_data: "calc_refund" },
     ],
   ];
 
@@ -846,7 +846,7 @@ Terima kasih telah menggunakan layanan SAISOKU.ID 🙏
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔴 Kembali", callback_data: "calc_refund" }],
+      [{ text: "⬅️ Kembali", callback_data: "calc_refund" }],
     ],
   };
 
@@ -872,7 +872,7 @@ Contoh: <code>80e1a571</code>`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔴 Batalkan", callback_data: "active_orders" }],
+      [{ text: "❌ Batalkan", callback_data: "active_orders" }],
     ],
   };
 
@@ -913,7 +913,7 @@ export async function handleSearchOrderInput(ctx: BotContext): Promise<Response>
     const keyboard = {
       inline_keyboard: [
         [{ text: "🔍 Cari Lagi", callback_data: "search_order_start" }],
-        [{ text: "🔴 List Order", callback_data: "active_orders" }],
+        [{ text: "⬅️ List Order", callback_data: "active_orders" }],
       ],
     };
     await send(chatId, `❌ Order dengan ID <code>${escapeHtml(query)}</code> tidak ditemukan dalam daftar order aktif Anda.`, keyboard);
@@ -945,7 +945,7 @@ export async function handleSearchOrderInput(ctx: BotContext): Promise<Response>
 
   inlineKeyboard.push([
     { text: "🔍 Cari Baru", callback_data: "search_order_start" },
-    { text: "🔴 List Order", callback_data: "active_orders" },
+    { text: "⬅️ List Order", callback_data: "active_orders" },
   ]);
 
   await send(chatId, text, { inline_keyboard: inlineKeyboard });

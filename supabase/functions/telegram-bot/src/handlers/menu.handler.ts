@@ -50,7 +50,7 @@ Silakan pilih menu saldo atau nominal deposit.`;
         { text: "50.000", callback_data: "invoice_50000" },
         { text: "100.000", callback_data: "invoice_100000" },
       ],
-      [{ text: "🔴 Kembali", callback_data: "start" }],
+      [{ text: "⬅️ Kembali", callback_data: "start" }],
     ],
   };
 
@@ -167,7 +167,7 @@ ${i + 1}. ${productMap[String(item.product_id)] || "Produk"}
 
   await sendLongMessage(chatId, textRiwayat, {
     inline_keyboard: [
-      [{ text: "🔴 Kembali", callback_data: "menu_lain" }],
+      [{ text: "⬅️ Kembali", callback_data: "menu_lain" }],
     ],
   });
 
@@ -232,7 +232,7 @@ ${idx + 1}. ${mapName[pid] || "Produk"}
 
   await sendLongMessage(chatId, text, {
     inline_keyboard: [
-      [{ text: "🔴 Kembali", callback_data: "menu_lain" }],
+      [{ text: "⬅️ Kembali", callback_data: "menu_lain" }],
     ],
   });
 
@@ -247,7 +247,7 @@ export async function handleProfile(
 
   await send(chatId, text, {
     inline_keyboard: [
-      [{ text: "🔴 Kembali", callback_data: "menu_lain" }],
+      [{ text: "⬅️ Kembali", callback_data: "menu_lain" }],
     ],
   });
 
@@ -274,7 +274,7 @@ export async function handleMenuLain(
         { text: "🎫 Hubungi Admin", callback_data: "ticket" },
       ],
       [
-        { text: "🔴 Kembali", callback_data: "start" },
+        { text: "⬅️ Kembali", callback_data: "start" },
       ],
     ],
   };

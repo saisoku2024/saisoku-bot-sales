@@ -165,7 +165,7 @@ Setelah bayar, klik tombol <b>Konfirmasi Bayar</b>.`;
           callback_data: `confirm_deposit_${depositRequest.id}`,
         },
       ],
-      [{ text: "🔴 Batal", callback_data: `cancel_deposit_${depositRequest.id}` }],
+      [{ text: "❌ Batal", callback_data: `cancel_deposit_${depositRequest.id}` }],
     ],
   };
 

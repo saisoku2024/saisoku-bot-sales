@@ -102,13 +102,13 @@ export async function handleStockMenu(ctx: BotContext): Promise<Response> {
       inline_keyboard: [
         [
           {
-            text: "🟡 Upload Stock",
+            text: "📤 Upload Stock",
             callback_data: "upload_stock",
           },
         ],
         [
           {
-            text: "🟡 Stock Summary",
+            text: "📊 Stock Summary",
             callback_data: "stock_summary",
           },
         ],
@@ -157,7 +157,7 @@ export async function handleUploadStockPage(
 
   if (page > 1) {
     navRow.push({
-      text: "🔴 Prev",
+      text: "⬅️ Prev",
       callback_data: `upload_stock_page_${page - 1}`,
     });
   }
@@ -175,7 +175,7 @@ export async function handleUploadStockPage(
 
   keyboard.push([
     {
-      text: "🟢 Home",
+      text: "🏠 Home",
       callback_data: "start",
     },
   ]);
