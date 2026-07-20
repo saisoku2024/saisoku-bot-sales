@@ -108,7 +108,7 @@ function getFriendlyShortId(t: any): string {
 }
 
 function getOrderTime(t: any): number {
-  return new Date(t.product_accounts?.sold_at || t.purchased_at || t.created_at || 0).getTime();
+  return new Date(getTransactionSoldAt(t) || t.purchased_at || t.created_at || 0).getTime();
 }
 
 function sortNewestFirst(list: any[]) {
@@ -117,6 +117,20 @@ function sortNewestFirst(list: any[]) {
 
 function getRefundDurationDays(): number {
   return 30;
+}
+
+function getSoldAccount(t: any): any {
+  if (!t?.sold_accounts) return null;
+  return Array.isArray(t.sold_accounts) ? (t.sold_accounts[0] ?? null) : t.sold_accounts;
+}
+
+function getTransactionAccount(t: any): any {
+  const snapshot = getSoldAccount(t)?.account_snapshot;
+  return snapshot || t?.product_accounts || {};
+}
+
+function getTransactionSoldAt(t: any): string | null {
+  return getTransactionAccount(t)?.sold_at || t?.product_accounts?.sold_at || null;
 }
 
 async function getActiveTransactions(userId: string) {
@@ -132,7 +146,7 @@ async function getActiveTransactions(userId: string) {
       status,
       products (name, modal, duration_days),
       product_accounts (email, password, pin, profile, sold_at),
-      sold_accounts (warranty_claim_count)
+      sold_accounts (account_snapshot, warranty_claim_count)
     `)
     .eq("user_id", userId)
     .eq("status", "paid")
@@ -146,7 +160,7 @@ async function getActiveTransactions(userId: string) {
   const now = new Date();
   const rows = (data || []) as any[];
   const activeList = rows.filter((t: any) => {
-    const baseDateStr = t.product_accounts?.sold_at || t.purchased_at || t.created_at;
+    const baseDateStr = getTransactionSoldAt(t) || t.purchased_at || t.created_at;
     if (!baseDateStr) return false;
     const baseDate = new Date(baseDateStr);
     const durationDays = Number(t.products?.duration_days || 30);
@@ -187,7 +201,8 @@ export async function handleActiveOrdersList(ctx: BotContext, data = "active_ord
   const inlineKeyboard: any[] = [];
 
   pageList.forEach((t: any, idx: number) => {
-    const profileName = t.product_accounts?.profile || "-";
+    const account = getTransactionAccount(t);
+    const profileName = account?.profile || "-";
     const shortId = getFriendlyShortId(t);
     const expiredStr = t.calculated_expired_at ? formatWIB(t.calculated_expired_at) : "-";
     const globalIdx = startIndex + idx + 1;
@@ -258,8 +273,9 @@ export async function handleExportRekapTxt(ctx: BotContext): Promise<Response> {
   list.forEach((t: any, idx: number) => {
     const shortId = getFriendlyShortId(t);
     const prodName = t.products?.name || "-";
-    const email = t.product_accounts?.email || "-";
-    const profile = t.product_accounts?.profile || "-";
+    const account = getTransactionAccount(t);
+    const email = account?.email || "-";
+    const profile = account?.profile || "-";
     const expiredStr = t.calculated_expired_at ? formatWIB(t.calculated_expired_at) : "-";
     const claimCount = t.sold_accounts?.[0]?.warranty_claim_count ?? 0;
 
@@ -300,7 +316,8 @@ export async function handleViewOrderDetail(ctx: BotContext, data: string): Prom
       expired_at,
       status,
       products (name, duration_days),
-      product_accounts (email, password, pin, profile, sold_at)
+      product_accounts (email, password, pin, profile, sold_at),
+      sold_accounts (account_snapshot)
     `)
     .eq("id", trxId)
     .single();
@@ -310,7 +327,8 @@ export async function handleViewOrderDetail(ctx: BotContext, data: string): Prom
     return ok();
   }
 
-  const baseDateStr = t.product_accounts?.sold_at || t.purchased_at || t.created_at;
+  const account = getTransactionAccount(t);
+  const baseDateStr = getTransactionSoldAt(t) || t.purchased_at || t.created_at;
   const baseDate = baseDateStr ? new Date(baseDateStr) : new Date();
   const durDays = Number(t.products?.duration_days || 30);
   const calculatedExpiry = new Date(baseDate.getTime() + durDays * 24 * 60 * 60 * 1000);
@@ -320,10 +338,10 @@ export async function handleViewOrderDetail(ctx: BotContext, data: string): Prom
   const detailText = `🧾 <b>DETAIL ORDER ${shortId}</b>
   
 └ Produk : <b>${escapeHtml(t.products?.name || "Produk")}</b>
-└ Email : <code>${escapeHtml(t.product_accounts?.email || "-")}</code>
-└ Password : <code>${escapeHtml(t.product_accounts?.password || "-")}</code>
-└ PIN : <code>${escapeHtml(t.product_accounts?.pin || "-")}</code>
-└ Profile : <b>${escapeHtml(t.product_accounts?.profile || "-")}</b>
+└ Email : <code>${escapeHtml(account?.email || "-")}</code>
+└ Password : <code>${escapeHtml(account?.password || "-")}</code>
+└ PIN : <code>${escapeHtml(account?.pin || "-")}</code>
+└ Profile : <b>${escapeHtml(account?.profile || "-")}</b>
 └ Tanggal Beli : ${baseDateStr ? formatWIB(new Date(baseDateStr)) : "-"}
 └ Tanggal Expired : <b>${formatWIB(actualExpiry)}</b>
 └ Status : <b>${escapeHtml(t.status || "-").toUpperCase()}</b>`;
@@ -468,7 +486,8 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
       trx_code,
       created_at,
       products (name),
-      product_accounts (email, profile)
+      product_accounts (email, profile),
+      sold_accounts (account_snapshot)
     `)
     .eq("id", trxId)
     .single();
@@ -573,7 +592,7 @@ Silakan tindak lanjuti melalui panel admin.`;
 }
 
 function getRemainingDays(t: any): number {
-  const baseDateStr = t.product_accounts?.sold_at || t.purchased_at || t.created_at;
+  const baseDateStr = getTransactionSoldAt(t) || t.purchased_at || t.created_at;
   if (!baseDateStr) return 0;
   const baseDate = new Date(baseDateStr);
   const durDays = getRefundDurationDays();
@@ -707,6 +726,7 @@ export async function handleRefundCalculatorOutput(ctx: BotContext, data: string
       expired_at,
       products (name, duration_days),
       product_accounts (email, profile, sold_at),
+      sold_accounts (account_snapshot),
       users (whatsapp, role, username)
     `)
     .eq("id", trxId)
@@ -718,7 +738,8 @@ export async function handleRefundCalculatorOutput(ctx: BotContext, data: string
   }
 
   const price = Number(t.price || 0);
-  const baseDateStr = t.product_accounts?.sold_at || t.purchased_at || t.created_at;
+  const account = getTransactionAccount(t);
+  const baseDateStr = getTransactionSoldAt(t) || t.purchased_at || t.created_at;
   const baseDate = baseDateStr ? new Date(baseDateStr) : new Date();
   
   const durDays = getRefundDurationDays();
@@ -789,7 +810,7 @@ export async function handleRefundCalculatorOutput(ctx: BotContext, data: string
   const rawRole = t.users?.role || ctx.user?.role || "reguler";
   const tipe = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
   const prodName = t.products?.name || "Produk";
-  const emailMasked = t.product_accounts?.email ? maskEmail(t.product_accounts.email) : "-";
+  const emailMasked = account?.email ? maskEmail(account.email) : "-";
   
   const statusLabel =
     coef === 0.90 ? "Belum Klaim < 7 Hari (0.90)" :
@@ -882,7 +903,8 @@ export async function handleSearchOrderInput(ctx: BotContext): Promise<Response>
       expired_at,
       status,
       products (name),
-      product_accounts (email, password, pin, profile)
+      product_accounts (email, password, pin, profile),
+      sold_accounts (account_snapshot)
     `)
     .eq("user_id", user.id)
     .or(`invoice.ilike.%${query}%,trx_code.ilike.%${query}%`);
@@ -902,7 +924,8 @@ export async function handleSearchOrderInput(ctx: BotContext): Promise<Response>
   const inlineKeyboard: any[] = [];
 
   list.forEach((t: any) => {
-    const profileName = t.product_accounts?.profile || "-";
+    const account = getTransactionAccount(t);
+    const profileName = account?.profile || "-";
     const shortId = getFriendlyShortId(t);
     const expiredStr = t.expired_at ? formatWIB(new Date(t.expired_at)) : "-";
 
