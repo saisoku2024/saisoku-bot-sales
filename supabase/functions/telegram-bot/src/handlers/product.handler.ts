@@ -206,6 +206,51 @@ export async function handleProductNumberInput(ctx: BotContext): Promise<Respons
   return ok();
 }
 
+export async function handlePromoAktif(ctx: BotContext): Promise<Response> {
+  const { chatId, user } = ctx;
+  const role = String(user.role || "reguler").toLowerCase();
+
+  if (!(role === "reguler" || role === "regular" || role === "reseller")) {
+    await send(chatId, "🔥 Promo aktif tersedia untuk user reguler/reseller.", {
+      inline_keyboard: [[{ text: "🏠 Home", callback_data: "start" }]],
+    });
+    return ok();
+  }
+
+  const { data, error } = await supabase.rpc("get_active_promos_for_bot", {
+    p_user_id: user.id,
+  });
+
+  if (error) {
+    console.error("handlePromoAktif error:", error);
+    await send(chatId, "❌ Gagal memuat promo aktif.");
+    return ok();
+  }
+
+  const promos = data || [];
+  if (!promos.length) {
+    await send(chatId, "🔥 Belum ada promo aktif saat ini.\n\nKetik /start untuk order 🛒", {
+      inline_keyboard: [[{ text: "🛒 List Produk", callback_data: "list_produk" }]],
+    });
+    return ok();
+  }
+
+  let text = `┌─「 🔥 PROMO AKTIF 」\n`;
+  promos.forEach((promo: any) => {
+    const label = promo.promo_label || promo.product_name || "Produk";
+    text += `│ 🎬 ${escapeHtml(label)} : ${rupiah(Number(promo.final_price || 0))}\n`;
+  });
+  text += `└─────────────────\n\nKetik /start untuk order 🛒`;
+
+  await send(chatId, text, {
+    inline_keyboard: [
+      [{ text: "🛒 List Produk", callback_data: "list_produk" }],
+      [{ text: "🏠 Home", callback_data: "start" }],
+    ],
+  });
+  return ok();
+}
+
 export async function handleQtyCustom(
   ctx: BotContext,
   data: string

@@ -54,6 +54,10 @@ export async function routeCallback(
   if (data === "menu_lain") return await handlers.handleMenuLain(ctx);
   if (data === "profil") return await handlers.handleProfile(ctx);
   if (data === "list_produk") return await handlers.handleListProduk(ctx);
+  if (data === "promo_aktif") {
+    const { handlePromoAktif } = await import("./src/handlers/product.handler.ts");
+    return await handlePromoAktif(ctx);
+  }
   if (data === "ticket") {
     const { handleTicketMenu } = await import("./src/handlers/ticket.handler.ts");
     return await handleTicketMenu(ctx);

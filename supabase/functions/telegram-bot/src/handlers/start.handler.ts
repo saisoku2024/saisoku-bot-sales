@@ -48,6 +48,7 @@ Selamat datang di SAISOKU.ID
 └ Total Transaksi : ${rupiah(Number(dashboard?.total_revenue || 0))}
 └ Total Pengguna : ${Number(dashboard?.total_users || 0)}`;
 
+  const role = String(currentUser.role || user.role || "reguler").toLowerCase();
   const keyboardRows = [
   [
     { text: "🛒 List Produk", callback_data: "list_produk" },
@@ -59,9 +60,15 @@ Selamat datang di SAISOKU.ID
   ],
 ];
 
+if (role === "reguler" || role === "regular" || role === "reseller") {
+  keyboardRows.unshift([
+    { text: "🔥 Promo Aktif", callback_data: "promo_aktif" },
+  ]);
+}
+
 if (
-  user.role === "admin" ||
-  user.role === "owner"
+  role === "admin" ||
+  role === "owner"
 ) {
   keyboardRows.push([
     {
