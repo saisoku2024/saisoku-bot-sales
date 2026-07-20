@@ -1,6 +1,6 @@
 import { ENV } from "../../env.ts";
 import { supabase } from "../../supabase.ts";
-import { send, sendLongMessage } from "../../telegram.ts";
+import { send, sendDocument, sendLongMessage } from "../../telegram.ts";
 import { isUserRestricted } from "../../user.repo.ts";
 
 import {
@@ -114,6 +114,41 @@ export async function sendPurchaseResult(
 ) {
   await sendLongMessage(chatId, summaryText);
 
+  if (items.length > 2) {
+    const safeProductName = productName || "Produk";
+    const txtContent = [
+      `HASIL PEMBELIAN - SAISOKU.ID`,
+      `Produk: ${safeProductName}`,
+      `Jumlah Akun: ${items.length}`,
+      `Tanggal: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} WIB`,
+      `========================================`,
+      "",
+      ...items.map((itm, i) => [
+        `[${safeProductName} - Akun ${i + 1}]`,
+        `Email    : ${itm.email ?? "-"}`,
+        `Password : ${itm.password ?? "-"}`,
+        `Profile  : ${itm.profile ?? "-"}`,
+        `PIN      : ${itm.pin ?? "-"}`,
+        `----------------------------------------`,
+      ].join("\n")),
+      "",
+      "Simpan file ini dengan aman. Jangan bagikan data akun kepada pihak lain.",
+    ].join("\n");
+
+    const filenameSafeProduct = safeProductName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "produk";
+    const filename = `saisoku-${filenameSafeProduct}-${Date.now()}.txt`;
+
+    await sendDocument(
+      chatId,
+      txtContent,
+      filename,
+      `📄 ${items.length} akun dikirim dalam file TXT.`
+    );
+  } else {
   for (let i = 0; i < items.length; i++) {
     const itm = items[i];
 
@@ -130,6 +165,7 @@ export async function sendPurchaseResult(
 └ PIN : ${escapeHtml(itm.pin ?? "-")}`;
 
     await sendLongMessage(chatId, itemText);
+  }
   }
 
   const tos = formatMultiline(tosDescription);
