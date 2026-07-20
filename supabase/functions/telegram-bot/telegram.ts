@@ -4,6 +4,82 @@ import { logBotError, logCaughtBotError } from "./error-logger.ts";
 
 const BOT_TOKEN = ENV.TELEGRAM_BOT_TOKEN;
 
+type TelegramButtonStyle = "primary" | "success" | "danger";
+type InlineKeyboardButtonLike = Record<string, unknown> & {
+  text?: unknown;
+  callback_data?: unknown;
+  style?: unknown;
+};
+
+function getButtonStyle(button: InlineKeyboardButtonLike): TelegramButtonStyle | undefined {
+  const text = String(button.text || "").toLowerCase();
+  const callbackData = String(button.callback_data || "").toLowerCase();
+
+  if (
+    text.includes("batal") ||
+    text.includes("kembali") ||
+    text.includes("hapus") ||
+    text.includes("tolak") ||
+    callbackData.includes("cancel") ||
+    callbackData.includes("delete") ||
+    callbackData.includes("reject")
+  ) {
+    return "danger";
+  }
+
+  if (
+    text.includes("home") ||
+    text.includes("list produk") ||
+    text.includes("saldo") ||
+    text.includes("mini games") ||
+    text.includes("profil") ||
+    text.includes("sudah bayar") ||
+    text.includes("approve") ||
+    text.includes("konfirmasi") ||
+    callbackData === "start" ||
+    callbackData === "list_produk" ||
+    callbackData === "saldo"
+  ) {
+    return "success";
+  }
+
+  if (
+    text.includes("menu lain") ||
+    text.includes("stock") ||
+    text.includes("promo") ||
+    text.includes("tutorial") ||
+    text.includes("cek stok") ||
+    text.includes("refresh") ||
+    callbackData.includes("stock") ||
+    callbackData.includes("promo")
+  ) {
+    return "primary";
+  }
+
+  return undefined;
+}
+
+function applyInlineButtonStyles(kb?: unknown): unknown {
+  if (!kb || typeof kb !== "object") return kb;
+
+  const markup = kb as { inline_keyboard?: unknown };
+  if (!Array.isArray(markup.inline_keyboard)) return kb;
+
+  return {
+    ...markup,
+    inline_keyboard: markup.inline_keyboard.map((row) => {
+      if (!Array.isArray(row)) return row;
+      return row.map((button) => {
+        if (!button || typeof button !== "object") return button;
+        const buttonObj = button as InlineKeyboardButtonLike;
+        if (buttonObj.style) return buttonObj;
+        const style = getButtonStyle(buttonObj);
+        return style ? { ...buttonObj, style } : buttonObj;
+      });
+    }),
+  };
+}
+
 // ==========================
 // SEND MESSAGE
 // ==========================
@@ -17,7 +93,7 @@ export async function send(chatId: number, text: string, kb?: unknown) {
         chat_id: chatId,
         text,
         parse_mode: "HTML",
-        reply_markup: kb,
+        reply_markup: applyInlineButtonStyles(kb),
       }),
     }
   );
@@ -57,7 +133,7 @@ export async function sendPhoto(
         photo,
         caption,
         parse_mode: "HTML",
-        reply_markup: kb,
+        reply_markup: applyInlineButtonStyles(kb),
       }),
     }
   );
@@ -96,7 +172,7 @@ export async function editMessage(
           message_id: msgId,
           text,
           parse_mode: "HTML",
-          reply_markup: kb,
+          reply_markup: applyInlineButtonStyles(kb),
         }),
       }
     );
@@ -141,7 +217,7 @@ export async function editCaption(
           message_id: msgId,
           caption,
           parse_mode: "HTML",
-          reply_markup: kb,
+          reply_markup: applyInlineButtonStyles(kb),
         }),
       }
     );
