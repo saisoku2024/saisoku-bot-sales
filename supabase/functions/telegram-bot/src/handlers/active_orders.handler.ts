@@ -211,7 +211,7 @@ export async function handleActiveOrdersList(ctx: BotContext, data = "active_ord
 
     inlineKeyboard.push([
       {
-        text: `🛡 ${shortId} ${profileName.slice(0, 10)}`,
+        text: `🛡 ${shortId}`,
         callback_data: `view_order_detail_${t.id}`,
       },
       {
@@ -933,7 +933,7 @@ export async function handleSearchOrderInput(ctx: BotContext): Promise<Response>
 
     inlineKeyboard.push([
       {
-        text: `🛡 ${shortId} ${profileName.slice(0, 10)}`,
+        text: `🛡 ${shortId}`,
         callback_data: `view_order_detail_${t.id}`,
       },
       {
