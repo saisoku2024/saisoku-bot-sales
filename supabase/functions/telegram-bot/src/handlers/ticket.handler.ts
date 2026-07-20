@@ -99,7 +99,7 @@ Admin kami akan segera membaca dan merespons tiket Anda.`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "❌ Batalkan", callback_data: "cancel_ticket_session" }],
+      [{ text: "🔴 Batalkan", callback_data: "cancel_ticket_session" }],
     ],
   };
 

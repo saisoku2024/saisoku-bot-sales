@@ -277,7 +277,7 @@ Setelah bayar, klik tombol <b>Sudah Bayar</b>.`;
   const keyboard = {
     inline_keyboard: [
       [{ text: "✅ Sudah Bayar", callback_data: `confirm_order_${order.id}` }],
-      [{ text: "❌ Batal", callback_data: `cancel_order_${order.id}` }],
+      [{ text: "🔴 Batal", callback_data: `cancel_order_${order.id}` }],
     ],
   };
 

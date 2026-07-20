@@ -76,7 +76,7 @@ Tambahkan jumlah pembelian:
         { text: "Buy (Saldo)", callback_data: `buy_saldo_${product.product_id}_${qty}` },
         { text: "Buy (Now)", callback_data: `buy_now_${product.product_id}_${qty}` },
       ],
-      [{ text: "⬅️ Kembali", callback_data: "list_produk" }],
+      [{ text: "🔴 Kembali", callback_data: "list_produk" }],
     ],
   };
 
@@ -124,7 +124,7 @@ function buildProductList(products: any[], page: number, ITEMS_PER_PAGE: number)
     inline_keyboard: [
       [
         {
-          text: "⬅️ Previous",
+          text: "🔴 Previous",
           callback_data: `list_produk_page_${Math.max(1, page - 1)}`,
         },
         {
@@ -141,7 +141,7 @@ function buildProductList(products: any[], page: number, ITEMS_PER_PAGE: number)
 
       [
         {
-          text: "🏠 Home",
+          text: "🟢 Home",
           callback_data: "start",
         },
       ],
@@ -212,7 +212,7 @@ export async function handlePromoAktif(ctx: BotContext): Promise<Response> {
 
   if (!(role === "reguler" || role === "regular" || role === "reseller")) {
     await send(chatId, "🔥 Promo aktif tersedia untuk user reguler/reseller.", {
-      inline_keyboard: [[{ text: "🏠 Home", callback_data: "start" }]],
+      inline_keyboard: [[{ text: "🟢 Home", callback_data: "start" }]],
     });
     return ok();
   }
@@ -245,7 +245,7 @@ export async function handlePromoAktif(ctx: BotContext): Promise<Response> {
   await send(chatId, text, {
     inline_keyboard: [
       [{ text: "🛒 List Produk", callback_data: "list_produk" }],
-      [{ text: "🏠 Home", callback_data: "start" }],
+      [{ text: "🟢 Home", callback_data: "start" }],
     ],
   });
   return ok();
@@ -499,7 +499,7 @@ export async function handleListProdukPage(
 
   if (!products || products.length === 0) {
     await editMessage(chatId, msg.message_id, "📭 Tidak ada produk dengan stok tersedia.", {
-      inline_keyboard: [[{ text: "🏠 Home", callback_data: "start" }]],
+      inline_keyboard: [[{ text: "🟢 Home", callback_data: "start" }]],
     });
     return ok();
   }
