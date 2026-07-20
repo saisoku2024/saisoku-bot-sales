@@ -208,9 +208,10 @@ const { data: loyaltyData } = await supabase.rpc(
 );
 
 const loyalty = loyaltyData?.[0];
+const promoActive = Boolean(product.is_promo_active) && Number(product.promo_price || 0) > 0;
 
 const loyaltyDiscount = Number(
-  loyalty?.discount_amount || 0,
+  promoActive ? 0 : loyalty?.discount_amount || 0,
 );
 
 const subtotalAfterDiscount = Math.max(
