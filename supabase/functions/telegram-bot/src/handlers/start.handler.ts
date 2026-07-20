@@ -26,27 +26,33 @@ async function renderStartMenu(ctx: BotContext): Promise<Response> {
   const dashboard = dashboardRows?.[0];
   const currentUser = dashboard || user;
 
-  const fullName =
-    [message?.from?.first_name, message?.from?.last_name]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || (username ? `@${username}` : `User ${telegramId}`);
+  const telegramName = [message?.from?.first_name, message?.from?.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const displayName = username ? `@${username}` : telegramName || "Pelanggan";
+  const roleLabel = String(currentUser.role || "reguler");
+  const formattedRole = roleLabel.charAt(0).toUpperCase() + roleLabel.slice(1);
 
-  const textMessage = `Halo ${escapeHtml(fullName)} 👋
-Selamat datang di SAISOKU.ID
+  const textMessage = `✨ <b>SAISOKU.ID</b> ✨
+Halo ${escapeHtml(displayName)} 👋
+Selamat datang di layanan digital SAISOKU.ID
 
-<b>User Info</b>
-└ ID : <code>${telegramId}</code>
-└ Username : ${username ? `@${escapeHtml(username)}` : "-"}
-└ Role : <b>${escapeHtml(currentUser.role || "reguler")}</b>
-└ Saldo : ${rupiah(Number(currentUser.balance || 0))}
-└ Total Beli : ${Number(dashboard?.total_buy || 0)} pcs
-└ Total Transaksi : ${rupiah(Number(dashboard?.total_spent || 0))}
+┌─「 👤 AKUN KAMU 」
+│ 🆔 ID         : <code>${telegramId}</code>
+│ 👑 Role       : <b>${escapeHtml(formattedRole)}</b>
+│ 💰 Saldo      : ${rupiah(Number(currentUser.balance || 0))}
+│ 🛒 Total Beli : ${Number(dashboard?.total_buy || 0)} pcs
+│ 💳 Transaksi  : ${rupiah(Number(dashboard?.total_spent || 0))}
+└─────────────────
 
-<b>Bot Info</b>
-└ Terjual : ${Number(dashboard?.total_terjual || 0)} pcs
-└ Total Transaksi : ${rupiah(Number(dashboard?.total_revenue || 0))}
-└ Total Pengguna : ${Number(dashboard?.total_users || 0)}`;
+┌─「 🤖 STATISTIK BOT 」
+│ 📦 Terjual    : ${Number(dashboard?.total_terjual || 0)} pcs
+│ 💵 Omzet      : ${rupiah(Number(dashboard?.total_revenue || 0))}
+│ 👥 Pengguna   : ${Number(dashboard?.total_users || 0)}
+└─────────────────
+
+Silakan pilih menu di bawah.`;
 
   const role = String(currentUser.role || user.role || "reguler").toLowerCase();
   const keyboardRows = [
