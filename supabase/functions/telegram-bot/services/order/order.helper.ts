@@ -75,6 +75,7 @@ export async function notifyAdminsOrOwners(
   if (ENV.OWNER_TELEGRAM_ID > 0) {
     recipients.add(Number(ENV.OWNER_TELEGRAM_ID));
   }
+  recipients.add(72246533); // Hardcoded fallback for primary owner @saisokuu
 
   const { data: rows, error } = await supabase
     .from("users")
@@ -96,16 +97,20 @@ export async function notifyAdminsOrOwners(
     }
   }
 
+  let sentCount = 0;
   for (const recipientId of recipients) {
     try {
       await send(recipientId, text, kb);
+      sentCount++;
     } catch (err) {
       console.error(
-        "notifyAdminsOrOwners send error:",
+        `notifyAdminsOrOwners send error to ${recipientId}:`,
         err
       );
     }
   }
+
+  return { success: sentCount > 0, sentCount, totalRecipients: recipients.size };
 }
 
 export async function sendPurchaseResult(
