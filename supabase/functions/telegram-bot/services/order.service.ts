@@ -1,6 +1,6 @@
 import { ENV } from "../env.ts";
 import { supabase } from "../supabase.ts";
-import { send, sendPhoto } from "../telegram.ts";
+import { send, sendPhoto, editCaption } from "../telegram.ts";
 import {
   rupiah,
   escapeHtml,
@@ -780,10 +780,32 @@ export async function handleConfirmOrder(
       product?.name || "Produk",
       product?.tos_description || product?.description
     );
+
+    const msgId = ctx.callback?.message?.message_id;
+    if (msgId) {
+      try {
+        const originalCaption = ctx.callback?.message?.caption || "";
+        const updatedCaption = `${originalCaption}\n\n✅ <b>Lunas (Pembayaran Berhasil)</b>`;
+        await editCaption(chatId, msgId, updatedCaption, null);
+      } catch (err) {
+        console.error("Failed to edit paid caption:", err);
+      }
+    }
     return ok();
   }
 
   const displayCode = order?.trx_code || order.id;
+
+  const msgId = ctx.callback?.message?.message_id;
+  if (msgId) {
+    try {
+      const originalCaption = ctx.callback?.message?.caption || "";
+      const updatedCaption = `${originalCaption}\n\n⏳ <b>Menunggu Konfirmasi Admin</b>`;
+      await editCaption(chatId, msgId, updatedCaption, null);
+    } catch (err) {
+      console.error("Failed to edit pending caption:", err);
+    }
+  }
 
   await send(
     chatId,
@@ -930,6 +952,18 @@ export async function handleCancelOrder(
   }
 
   await send(chatId, "❌ Order berhasil dibatalkan.");
+
+  const msgId = ctx.callback?.message?.message_id;
+  if (msgId) {
+    try {
+      const originalCaption = ctx.callback?.message?.caption || "";
+      const updatedCaption = `${originalCaption}\n\n❌ <b>Pemesanan Dibatalkan</b>`;
+      await editCaption(chatId, msgId, updatedCaption, null);
+    } catch (err) {
+      console.error("Failed to edit cancel caption:", err);
+    }
+  }
+
   return ok();
 }
 
