@@ -89,13 +89,16 @@ function getFriendlyShortId(t: any): string {
   if (typeof t === "string") {
     idOrTrxCode = t;
   } else {
-    idOrTrxCode = t.invoice || t.trx_code || t.id || "";
+    idOrTrxCode = t.trx_code || t.invoice || t.id || "";
   }
   
   let shortCode = idOrTrxCode;
   if (shortCode.includes("-")) {
     const parts = shortCode.split("-");
-    if (parts[0].length === 8) {
+    if (parts.length >= 3 && parts[0].toUpperCase() === "SSID") {
+      return `#${parts[parts.length - 1]}`;
+    }
+    if (parts[0].length === 8 && /^[0-9a-fA-F]+$/.test(parts[0])) {
       shortCode = parts[0];
     } else {
       shortCode = parts[parts.length - 1];

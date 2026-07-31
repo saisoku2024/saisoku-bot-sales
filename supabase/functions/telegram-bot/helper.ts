@@ -92,17 +92,25 @@ export function isManagedAdminCommand(cmd: string) {
 // ==========================
 // GENERATOR
 // ==========================
-export function generateTrxCode(prefix = "TRX") {
+export function generateTrxCode(prefix = "SSID", seqNum?: number) {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const h = String(now.getHours()).padStart(2, "0");
-  const i = String(now.getMinutes()).padStart(2, "0");
-  const s = String(now.getSeconds()).padStart(2, "0");
-  const rand = Math.floor(Math.random() * 9000) + 1000;
+  const wibDate = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  const y = wibDate.getUTCFullYear();
+  const m = String(wibDate.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(wibDate.getUTCDate()).padStart(2, "0");
+  const dateKey = `${y}${m}${d}`;
 
-  return `${prefix}-${y}${m}${d}${h}${i}${s}-${rand}`;
+  let seqStr = "";
+  if (typeof seqNum === "number" && seqNum > 0) {
+    seqStr = String(seqNum).padStart(6, "0");
+  } else {
+    const startOfDay = new Date(Date.UTC(y, wibDate.getUTCMonth(), wibDate.getUTCDate(), 0, 0, 0));
+    const msToday = wibDate.getTime() - startOfDay.getTime();
+    const approxSeq = Math.floor((msToday / 86400000) * 899999) + 100000;
+    seqStr = String(approxSeq).padStart(6, "0");
+  }
+
+  return `${prefix}-${dateKey}-${seqStr}`;
 }
 
 export function generateUniqueCode() {
