@@ -147,7 +147,7 @@ async function getActiveTransactions(userId: string) {
       purchased_at,
       expired_at,
       status,
-      products (name, modal, duration_days),
+      products (name, product_code, modal, duration_days),
       product_accounts (email, password, pin, profile, sold_at),
       sold_accounts (account_snapshot, warranty_claim_count)
     `)
@@ -204,17 +204,16 @@ export async function handleActiveOrdersList(ctx: BotContext, data = "active_ord
   const inlineKeyboard: any[] = [];
 
   pageList.forEach((t: any, idx: number) => {
-    const account = getTransactionAccount(t);
-    const profileName = account?.profile || "-";
+    const productCode = t.products?.product_code || t.products?.name || "PROD";
     const shortId = getFriendlyShortId(t);
     const expiredStr = t.calculated_expired_at ? formatWIB(t.calculated_expired_at) : "-";
     const globalIdx = startIndex + idx + 1;
 
-    text += `${globalIdx}. 👑 ⏳ <b>${escapeHtml(profileName)}</b> — exp ${expiredStr} — ${shortId}\n`;
+    text += `${globalIdx}. <b>${escapeHtml(productCode)}</b>_${shortId}_exp ${expiredStr}\n`;
 
     inlineKeyboard.push([
       {
-        text: `🛡 ${shortId}`,
+        text: `🛡 ${productCode}_${shortId}`,
         callback_data: `view_order_detail_${t.id}`,
       },
       {
