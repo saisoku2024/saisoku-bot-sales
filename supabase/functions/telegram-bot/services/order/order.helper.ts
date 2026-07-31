@@ -209,6 +209,18 @@ export async function getLatestSoldAccountsForUserProduct(
 export async function getSoldAccountsByOrderId(
   orderId: string
 ) {
+  // 1. Direct match on sold_accounts.transaction_id
+  const { data: directData } = await supabase
+    .from("sold_accounts")
+    .select("id, created_at, account_snapshot")
+    .eq("transaction_id", orderId)
+    .order("created_at", { ascending: true });
+
+  if (directData && directData.length > 0) {
+    return directData;
+  }
+
+  // 2. Match via transactions join on invoice prefix
   const { data, error } = await supabase
     .from("sold_accounts")
     .select(`

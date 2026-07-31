@@ -758,7 +758,10 @@ export async function handleApproveOrder(
     console.error("APPROVE ORDER get buyer error:", buyerError);
   }
 
-  const soldAccounts = await getSoldAccountsByOrderId(orderId);
+  let soldAccounts = await getSoldAccountsByOrderId(result.transaction_id || "");
+  if (!soldAccounts || soldAccounts.length === 0) {
+    soldAccounts = await getSoldAccountsByOrderId(orderId);
+  }
 
   const items = soldAccounts.map((row: any) => ({
     email: row.account_snapshot?.email ?? "-",
