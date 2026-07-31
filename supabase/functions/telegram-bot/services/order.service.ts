@@ -382,7 +382,6 @@ export async function handleCreateQris(
       final_amount: finalAmount,
       status: "waiting_payment",
       payment_method: "manual",
-      trx_code: trxCode,
     })
     .select()
     .single();
@@ -393,7 +392,7 @@ export async function handleCreateQris(
     return ok();
   }
 
-  const displayCode = order.trx_code || trxCode;
+  const displayCode = generateTrxCode("SSID", seqNumber);
 
   const invoiceText = `💳 <b>PEMBAYARAN BUY NOW (QRIS)</b>
 
