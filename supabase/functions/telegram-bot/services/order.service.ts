@@ -493,6 +493,91 @@ export async function handleConfirmOrder(
     console.error("CONFIRM ORDER productError:", productError);
   }
 
+  if (result.out_status === "paid" || (result.transaction_id && result.out_status !== "pending")) {
+    const dateKey = getJakartaDateKey().replace(/-/g, "");
+    const todayStart = `${getJakartaDateKey()}T00:00:00.000Z`;
+
+    const { count } = await supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayStart);
+
+    const seqNumber = Math.max(1, count || 1);
+    const formattedTrxCode = `SSID-${dateKey}-${String(seqNumber).padStart(6, "0")}`;
+
+    if (result.transaction_id) {
+      await supabase
+        .from("transactions")
+        .update({ trx_code: formattedTrxCode })
+        .eq("id", result.transaction_id);
+    }
+
+    const { data: trxWithAcc } = await supabase
+      .from("transactions")
+      .select("account_id, product_accounts(email, password, profile, pin)")
+      .eq("id", result.transaction_id)
+      .maybeSingle();
+
+    let items: any[] = [];
+    const pa = trxWithAcc?.product_accounts;
+    if (pa && pa.email) {
+      await supabase
+        .from("sold_accounts")
+        .update({
+          account_snapshot: {
+            email: pa.email,
+            password: pa.password,
+            profile: pa.profile,
+            pin: pa.pin,
+            sold_at: new Date().toISOString(),
+          },
+        })
+        .eq("transaction_id", result.transaction_id);
+
+      items = [{
+        email: pa.email,
+        password: pa.password,
+        profile: pa.profile,
+        pin: pa.pin,
+      }];
+    } else {
+      let soldAccounts = await getSoldAccountsByOrderId(result.transaction_id || "");
+      if (!soldAccounts || soldAccounts.length === 0) {
+        soldAccounts = await getSoldAccountsByOrderId(orderId);
+      }
+      items = soldAccounts.map((row: any) => ({
+        email: row.account_snapshot?.email ?? pa?.email ?? "-",
+        password: row.account_snapshot?.password ?? pa?.password ?? "-",
+        pin: row.account_snapshot?.pin ?? pa?.pin ?? "-",
+        profile: row.account_snapshot?.profile ?? pa?.profile ?? "-",
+      }));
+    }
+
+    const { getFriendlyShortId } = await import("../src/handlers/active_orders.handler.ts");
+    const displayCode = formattedTrxCode || order?.trx_code || `SSID-${orderId.slice(0, 8).toUpperCase()}`;
+    const shortSeq = getFriendlyShortId(formattedTrxCode || order || orderId);
+
+    const summaryText = `✅ <b>PEMBELIAN BERHASIL!</b>
+
+<b>Informasi Pembelian</b>
+└ Kode Order : <code>${escapeHtml(displayCode)}</code> (${shortSeq})
+└ Produk : ${escapeHtml(product?.name || "Produk")}
+└ Kode : ${escapeHtml(product?.product_code || "-")}
+└ Jumlah : ${Number(order.qty || 1)}
+└ Harga Satuan : ${rupiah(Number(order.unit_price || 0))}
+└ Total : ${rupiah(Number(order.total_price || 0))}
+└ Metode : Saldo`;
+
+    await sendPurchaseResult(
+      chatId,
+      summaryText,
+      items,
+      product?.name || "Produk",
+      product?.tos_description || product?.description
+    );
+    return ok();
+  }
+
   const displayCode = order?.trx_code || order.id;
 
   await send(

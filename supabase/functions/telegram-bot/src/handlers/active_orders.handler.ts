@@ -95,13 +95,14 @@ function getFriendlyShortId(t: any): string {
   let shortCode = idOrTrxCode;
   if (shortCode.includes("-")) {
     const parts = shortCode.split("-");
-    if (parts.length >= 3 && parts[0].toUpperCase() === "SSID") {
-      return `#${parts[parts.length - 1]}`;
+    const lastPart = parts[parts.length - 1];
+    if (parts[0].toUpperCase() === "SSID" || /^\d+$/.test(lastPart)) {
+      return `#${lastPart}`;
     }
     if (parts[0].length === 8 && /^[0-9a-fA-F]+$/.test(parts[0])) {
       shortCode = parts[0];
     } else {
-      shortCode = parts[parts.length - 1];
+      shortCode = lastPart;
     }
   }
   if (shortCode.length > 8) {
@@ -128,8 +129,16 @@ function getSoldAccount(t: any): any {
 }
 
 function getTransactionAccount(t: any): any {
-  const snapshot = getSoldAccount(t)?.account_snapshot;
-  return snapshot || t?.product_accounts || {};
+  const sa = getSoldAccount(t);
+  const snapshot = sa?.account_snapshot;
+  const pa = t?.product_accounts;
+  return {
+    email: snapshot?.email || pa?.email || "-",
+    password: snapshot?.password || pa?.password || "-",
+    profile: snapshot?.profile || pa?.profile || "-",
+    pin: snapshot?.pin || pa?.pin || "-",
+    sold_at: snapshot?.sold_at || pa?.sold_at || t?.purchased_at || t?.created_at,
+  };
 }
 
 function getTransactionSoldAt(t: any): string | null {
