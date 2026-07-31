@@ -117,18 +117,56 @@ export async function sendPhoto(
   caption: string,
   kb?: unknown
 ) {
-  const res = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+  let bodyData: any;
+  let headers: any = {};
+
+  if (photo.startsWith("http")) {
+    try {
+      const imageRes = await fetch(photo);
+      if (imageRes.ok) {
+        const imageBlob = await imageRes.blob();
+        
+        const formData = new FormData();
+        formData.append("chat_id", String(chatId));
+        formData.append("photo", imageBlob, "qris.png");
+        formData.append("caption", caption);
+        formData.append("parse_mode", "HTML");
+        if (kb) {
+          formData.append("reply_markup", JSON.stringify(applyInlineButtonStyles(kb)));
+        }
+        
+        bodyData = formData;
+      } else {
+        throw new Error(`Failed to fetch photo from URL: ${imageRes.statusText}`);
+      }
+    } catch (err) {
+      console.error("Failed to upload photo as FormData, falling back to JSON url...", err);
+      headers = { "Content-Type": "application/json" };
+      bodyData = JSON.stringify({
         chat_id: chatId,
         photo,
         caption,
         parse_mode: "HTML",
         reply_markup: applyInlineButtonStyles(kb),
-      }),
+      });
+    }
+  } else {
+    headers = { "Content-Type": "application/json" };
+    bodyData = JSON.stringify({
+      chat_id: chatId,
+      photo,
+      caption,
+      parse_mode: "HTML",
+      reply_markup: applyInlineButtonStyles(kb),
+    });
+  }
+
+  const res = await fetch(
+    `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
+    {
+      method: "POST",
+      headers,
+      body: bodyData,
     }
   );
 
