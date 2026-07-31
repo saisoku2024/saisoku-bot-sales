@@ -92,9 +92,22 @@ export async function handleBuySaldo(
     profile: row.account_snapshot?.profile ?? "-",
   }));
 
+  const dateKey = getJakartaDateKey().replace(/-/g, "");
+  const todayStart = `${getJakartaDateKey()}T00:00:00.000Z`;
+
+  const { count } = await supabase
+    .from("transactions")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", todayStart);
+
+  const seqNumber = (count || 0) + 1;
+  const displayCode = generateTrxCode("SSID", seqNumber);
+  const shortSeq = `#${String(seqNumber).padStart(6, "0")}`;
+
   const summaryText = `✅ <b>PEMBELIAN BERHASIL!</b>
 
 <b>Informasi Pembelian</b>
+└ Kode Order : <code>${escapeHtml(displayCode)}</code> (${shortSeq})
 └ Produk : ${escapeHtml(product.product_name)}
 └ Kode : ${escapeHtml(product.product_code || "-")}
 └ Role Harga : ${escapeHtml(product.user_role || "-")}
@@ -109,7 +122,7 @@ export async function handleBuySaldo(
     summaryText,
     items,
     product.product_name,
-    product.tos_description
+    product.tos_description || product.description
   );
 
   return ok();
@@ -735,12 +748,14 @@ export async function handleApproveOrder(
     profile: row.account_snapshot?.profile ?? "-",
   }));
 
-  const displayCode = order?.trx_code || orderId;
+  const { getFriendlyShortId } = await import("../src/handlers/active_orders.handler.ts");
+  const displayCode = order?.trx_code || `SSID-${orderId.slice(0, 8).toUpperCase()}`;
+  const shortSeq = getFriendlyShortId(order || orderId);
 
   const summaryText = `✅ <b>PEMBELIAN BERHASIL!</b>
 
 <b>Informasi Pembelian</b>
-└ Kode Order : <code>${escapeHtml(displayCode)}</code>
+└ Kode Order : <code>${escapeHtml(displayCode)}</code> (${shortSeq})
 └ Produk : ${escapeHtml(product?.name || "Produk")}
 └ Kode : ${escapeHtml(product?.product_code || "-")}
 └ Role Harga : ${escapeHtml(buyer?.role || "-")}
@@ -757,7 +772,7 @@ export async function handleApproveOrder(
       summaryText,
       items,
       product?.name || "Produk",
-      product?.tos_description
+      product?.tos_description || product?.description
     );
   } catch (err) {
     console.error("APPROVE ORDER sendPurchaseResult error:", err);

@@ -173,7 +173,7 @@ export async function sendPurchaseResult(
   if (tos && tos !== "-") {
     await sendLongMessage(
       chatId,
-      `<b>Term of Service</b>\n${escapeHtml(tos)}`
+      `📌 <b>Catatan Pengiriman / Terms of Service</b>\n${escapeHtml(tos)}`
     );
   }
 }
