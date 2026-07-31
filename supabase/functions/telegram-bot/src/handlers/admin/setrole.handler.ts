@@ -27,7 +27,7 @@ export async function handleSetRole(
     telegramId,
   );
 
-  if (!isOwner(actorRole)) {
+  if (!isOwner(actorRole, Number(telegramId))) {
     await send(chatId, "❌ Hanya OWNER yang bisa mengubah role.");
     return ok();
   }

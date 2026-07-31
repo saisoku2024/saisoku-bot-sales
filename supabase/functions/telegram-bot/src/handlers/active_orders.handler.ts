@@ -82,7 +82,7 @@ function formatDateYMD(date: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function getFriendlyShortId(t: any): string {
+export function getFriendlyShortId(t: any): string {
   if (!t) return "#ORDER";
   
   let idOrTrxCode = "";
