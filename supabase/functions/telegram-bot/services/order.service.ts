@@ -719,6 +719,25 @@ export async function handleApproveOrder(
     console.error("APPROVE ORDER get approved order error:", orderError);
   }
 
+  // Format and update custom order code on transaction record
+  const dateKey = getJakartaDateKey().replace(/-/g, "");
+  const todayStart = `${getJakartaDateKey()}T00:00:00.000Z`;
+
+  const { count } = await supabase
+    .from("transactions")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", todayStart);
+
+  const seqNumber = Math.max(1, count || 1);
+  const formattedTrxCode = generateTrxCode("SSID", seqNumber);
+
+  if (result.transaction_id) {
+    await supabase
+      .from("transactions")
+      .update({ trx_code: formattedTrxCode })
+      .eq("id", result.transaction_id);
+  }
+
   const { data: product, error: productError } = await supabase
     .from("products")
     .select("*")
@@ -749,8 +768,8 @@ export async function handleApproveOrder(
   }));
 
   const { getFriendlyShortId } = await import("../src/handlers/active_orders.handler.ts");
-  const displayCode = order?.trx_code || `SSID-${orderId.slice(0, 8).toUpperCase()}`;
-  const shortSeq = getFriendlyShortId(order || orderId);
+  const displayCode = formattedTrxCode || order?.trx_code || `SSID-${orderId.slice(0, 8).toUpperCase()}`;
+  const shortSeq = getFriendlyShortId(formattedTrxCode || order || orderId);
 
   const summaryText = `✅ <b>PEMBELIAN BERHASIL!</b>
 
