@@ -735,7 +735,7 @@ export async function handleApproveOrder(
   const { chatId, telegramId } = ctx;
   const role = await getRoleByTelegramId(Number(telegramId));
 
-  if (!isAdminOrOwner(role)) {
+  if (!isAdminOrOwner(role, telegramId)) {
     await send(chatId, "❌ Akses ditolak. Hanya admin/owner.");
     return ok();
   }

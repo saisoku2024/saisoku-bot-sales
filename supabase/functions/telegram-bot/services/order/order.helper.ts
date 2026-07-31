@@ -12,7 +12,10 @@ export function ok() {
   return new Response("ok");
 }
 
-export function isAdminOrOwner(role: string) {
+export function isAdminOrOwner(role: string, telegramId?: number) {
+  if (telegramId && ENV.OWNER_TELEGRAM_ID > 0 && Number(telegramId) === Number(ENV.OWNER_TELEGRAM_ID)) {
+    return true;
+  }
   return role === "admin" || role === "owner";
 }
 
