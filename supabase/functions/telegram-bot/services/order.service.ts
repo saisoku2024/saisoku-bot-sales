@@ -873,19 +873,31 @@ export async function handleApproveOrder(
 └ Tagihan Final : ${rupiah(Number(order?.final_amount || result.total_price || 0))}
 └ Metode : ${escapeHtml(order?.payment_method || "manual")}`;
 
-  try {
-    await sendPurchaseResult(
-      Number(order?.telegram_id),
-      summaryText,
-      items,
-      product?.name || "Produk",
-      product?.tos_description || product?.description
-    );
-  } catch (err) {
-    console.error("APPROVE ORDER sendPurchaseResult error:", err);
+  const buyerTelegramId = Number(order?.telegram_id || result?.out_telegram_id || buyer?.telegram_id || 0);
+
+  if (buyerTelegramId > 0) {
+    try {
+      await sendPurchaseResult(
+        buyerTelegramId,
+        summaryText,
+        items,
+        product?.name || "Produk",
+        product?.tos_description || product?.description
+      );
+    } catch (err) {
+      console.error("APPROVE ORDER sendPurchaseResult error:", err);
+    }
   }
 
-  await send(chatId, `✅ Order ${escapeHtml(displayCode)} berhasil di-approve.`);
+  const approveMsgText = `✅ <b>ORDER APPROVED!</b>\n\n└ Kode Order : <code>${escapeHtml(displayCode)}</code> (${shortSeq})\n└ Produk : ${escapeHtml(product?.name || "Produk")}\n└ Status : <b>LUNAS & DIKIRIM KE PEMBELI</b>`;
+
+  if (ctx.msg?.message_id || ctx.callback?.message?.message_id) {
+    const { editMessage } = await import("../telegram.ts");
+    const msgId = ctx.callback?.message?.message_id || ctx.msg?.message_id;
+    await editMessage(chatId, msgId, approveMsgText);
+  } else {
+    await send(chatId, approveMsgText);
+  }
   return ok();
 }
 
