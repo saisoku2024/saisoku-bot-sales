@@ -218,7 +218,7 @@ export async function handleActiveOrdersList(ctx: BotContext, data = "active_ord
       },
       {
         text: "🔐 Garansi",
-        callback_data: `claim_warranty_menu_${t.id}`,
+        callback_data: `warr_menu_${t.id}`,
       },
     ]);
   });
@@ -360,7 +360,7 @@ export async function handleViewOrderDetail(ctx: BotContext, data: string): Prom
 
 export async function handleClaimWarrantyMenu(ctx: BotContext, data: string): Promise<Response> {
   const { chatId } = ctx;
-  const trxId = data.replace("claim_warranty_menu_", "").trim();
+  const trxId = data.replace(/^warr_menu_|^claim_warranty_menu_/, "").trim();
 
   // Fetch warranty claim count
   const { data: sa } = await supabase
@@ -379,10 +379,10 @@ Silakan pilih jenis kendala akun yang Anda alami:`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔑 Salah Password / Gagal Login", callback_data: `apply_warranty_claim_${trxId}_login` }],
-      [{ text: "❌ Akun Disable / Screen Limit", callback_data: `apply_warranty_claim_${trxId}_disable` }],
-      [{ text: "📺 Profile / PIN Salah", callback_data: `apply_warranty_claim_${trxId}_profile` }],
-      [{ text: "❓ Kendala Lainnya", callback_data: `apply_warranty_claim_${trxId}_other` }],
+      [{ text: "🔑 Salah Password / Gagal Login", callback_data: `wc_${trxId}_login` }],
+      [{ text: "❌ Akun Disable / Screen Limit", callback_data: `wc_${trxId}_disable` }],
+      [{ text: "📺 Profile / PIN Salah", callback_data: `wc_${trxId}_profile` }],
+      [{ text: "❓ Kendala Lainnya", callback_data: `wc_${trxId}_other` }],
       [{ text: "⬅️ Batal", callback_data: "active_orders" }],
     ],
   };
@@ -393,8 +393,8 @@ Silakan pilih jenis kendala akun yang Anda alami:`;
 
 export async function handleApplyWarrantyClaim(ctx: BotContext, data: string): Promise<Response> {
   const { chatId, telegramId } = ctx;
-  // Format: apply_warranty_claim_{trxId}_{issueType}
-  const cleanData = data.replace("apply_warranty_claim_", "").trim();
+  // Format: wc_{trxId}_{issueType} or apply_warranty_claim_{trxId}_{issueType}
+  const cleanData = data.replace(/^wc_|^apply_warranty_claim_/, "").trim();
   const lastUnderscore = cleanData.lastIndexOf("_");
   const trxId = lastUnderscore !== -1 ? cleanData.slice(0, lastUnderscore) : cleanData;
   const issueType = lastUnderscore !== -1 ? cleanData.slice(lastUnderscore + 1) : "general";

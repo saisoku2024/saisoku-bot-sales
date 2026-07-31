@@ -83,11 +83,11 @@ export async function routeCallback(
     const { handleViewOrderDetail } = await import("./src/handlers/active_orders.handler.ts");
     return await handleViewOrderDetail(ctx, data);
   }
-  if (data.startsWith("claim_warranty_menu_")) {
+  if (data.startsWith("warr_menu_") || data.startsWith("claim_warranty_menu_")) {
     const { handleClaimWarrantyMenu } = await import("./src/handlers/active_orders.handler.ts");
     return await handleClaimWarrantyMenu(ctx, data);
   }
-  if (data.startsWith("apply_warranty_claim_")) {
+  if (data.startsWith("wc_") || data.startsWith("apply_warranty_claim_")) {
     const { handleApplyWarrantyClaim } = await import("./src/handlers/active_orders.handler.ts");
     return await handleApplyWarrantyClaim(ctx, data);
   }
