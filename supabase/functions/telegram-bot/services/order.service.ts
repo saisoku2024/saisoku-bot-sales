@@ -198,31 +198,39 @@ Selesaikan atau batalkan order lama dulu sebelum membuat order baru.`
   }
 
   const unitPrice = Number(product.final_price || 0);
-const totalPrice = unitPrice * qty;
+  const totalPrice = unitPrice * qty;
 
-const { data: loyaltyData } = await supabase.rpc(
-  "get_user_loyalty_summary",
-  {
-    p_telegram_id: telegramId,
-  },
-);
+  const { data: loyaltyData } = await supabase.rpc(
+    "get_user_loyalty_summary",
+    {
+      p_telegram_id: telegramId,
+    },
+  );
 
-const loyalty = loyaltyData?.[0];
-const promoActive = Boolean(product.is_promo_active) && Number(product.promo_price || 0) > 0;
+  const loyalty = loyaltyData?.[0];
+  const promoActive = Boolean(product.is_promo_active) && Number(product.promo_price || 0) > 0;
 
-const loyaltyDiscount = Number(
-  promoActive ? 0 : loyalty?.discount_amount || 0,
-);
+  const loyaltyDiscount = Number(
+    promoActive ? 0 : loyalty?.discount_amount || 0,
+  );
 
-const subtotalAfterDiscount = Math.max(
-  0,
-  totalPrice - loyaltyDiscount,
-);
+  // Deposit deduction calculation for QRIS / Buy Now:
+  // Min deposit to use = 3,000; Max deposit deduction = 10,000
+  const userBalance = Number(u.balance || 0);
+  let depositDeduction = 0;
+  if (userBalance >= 3000) {
+    depositDeduction = Math.min(userBalance, 10000);
+  }
 
-const uniqueCode = generateUniqueCode();
+  const subtotalAfterDiscount = Math.max(
+    0,
+    totalPrice - loyaltyDiscount - depositDeduction,
+  );
 
-const finalAmount =
-  subtotalAfterDiscount + uniqueCode;
+  const uniqueCode = generateUniqueCode();
+
+  const finalAmount =
+    subtotalAfterDiscount + uniqueCode;
 
   if (unitPrice <= 0) {
     await send(chatId, "❌ Harga produk tidak valid.");
@@ -237,13 +245,11 @@ const finalAmount =
       product_id: pId,
       qty,
       unit_price: unitPrice,
-total_price: totalPrice,
-
-loyalty_discount: loyaltyDiscount,
-subtotal_after_discount: subtotalAfterDiscount,
-
-unique_code: uniqueCode,
-final_amount: finalAmount,
+      total_price: totalPrice,
+      loyalty_discount: loyaltyDiscount,
+      subtotal_after_discount: subtotalAfterDiscount,
+      unique_code: uniqueCode,
+      final_amount: finalAmount,
       status: "waiting_payment",
       payment_method: "manual",
     })
@@ -256,7 +262,7 @@ final_amount: finalAmount,
     return ok();
   }
 
-  const invoiceText = `💳 <b>PEMBAYARAN BUY NOW</b>
+  const invoiceText = `💳 <b>PEMBAYARAN BUY NOW (QRIS)</b>
 
 <b>Informasi Order</b>
 └ Order ID : <code>${escapeHtml(order.id)}</code>
@@ -266,8 +272,7 @@ final_amount: finalAmount,
 └ Jumlah : ${qty}
 └ Harga Satuan : ${rupiah(unitPrice)}
 └ Total Produk : ${rupiah(totalPrice)}
-└ Diskon Loyalty : ${rupiah(loyaltyDiscount)}
-└ Subtotal : ${rupiah(subtotalAfterDiscount)}
+${loyaltyDiscount > 0 ? `└ Diskon Loyalty : ${rupiah(loyaltyDiscount)}\n` : ""}${depositDeduction > 0 ? `└ Potongan Saldo : ${rupiah(depositDeduction)} (Saldo ${rupiah(userBalance)})\n` : ""}└ Subtotal : ${rupiah(subtotalAfterDiscount)}
 └ Kode Unik : ${uniqueCode}
 └ Tagihan Final : <b>${rupiah(finalAmount)}</b>
 
@@ -527,6 +532,32 @@ export async function handleApproveOrder(
   const result = rpcData?.[0];
 
   if (!result?.success) {
+    const isStockError =
+      (result?.message || "").toLowerCase().includes("stok") ||
+      (result?.message || "").toLowerCase().includes("stock") ||
+      (result?.message || "").toLowerCase().includes("habis");
+
+    if (isStockError) {
+      await send(
+        chatId,
+        `❌ <b>Stok Habis, Gagal Approve!</b>\n\nStok produk ini saat ini 0. Silakan isi stok terlebih dahulu untuk produk ini, lalu klik <b>Approve Order</b> kembali.`
+      );
+
+      const { data: pendingOrd } = await supabase
+        .from("pending_orders")
+        .select("telegram_id")
+        .eq("id", orderId)
+        .single();
+
+      if (pendingOrd?.telegram_id) {
+        await send(
+          Number(pendingOrd.telegram_id),
+          `✅ <b>Pembayaran Anda telah dikonfirmasi oleh Admin!</b>\n\n⚠️ <b>Status: Menunggu Restock Stok (Pending Delivery)</b>\nSaat ini stok akun sedang habis. Akun Anda akan otomatis dikirimkan setelah Admin melakukan restock. Mohon tunggu sejenak 🙏`
+        );
+      }
+      return ok();
+    }
+
     await send(chatId, `❌ ${result?.message || "Approve order gagal."}`);
     return ok();
   }
