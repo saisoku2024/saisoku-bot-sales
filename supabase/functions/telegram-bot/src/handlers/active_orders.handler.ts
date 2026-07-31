@@ -375,11 +375,14 @@ export async function handleClaimWarrantyMenu(ctx: BotContext, data: string): Pr
 
 Jumlah Klaim Sebelumnya: <b>${claimCount} kali</b>
 
-Apakah Anda ingin melakukan klaim garansi untuk order ini? Admin akan meninjau dan mengganti akun/melakukan perbaikan jika diperlukan.`;
+Silakan pilih jenis kendala akun yang Anda alami:`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "✅ Ajukan Klaim", callback_data: `apply_warranty_claim_${trxId}` }],
+      [{ text: "🔑 Salah Password / Gagal Login", callback_data: `apply_warranty_claim_${trxId}_login` }],
+      [{ text: "❌ Akun Disable / Screen Limit", callback_data: `apply_warranty_claim_${trxId}_disable` }],
+      [{ text: "📺 Profile / PIN Salah", callback_data: `apply_warranty_claim_${trxId}_profile` }],
+      [{ text: "❓ Kendala Lainnya", callback_data: `apply_warranty_claim_${trxId}_other` }],
       [{ text: "⬅️ Batal", callback_data: "active_orders" }],
     ],
   };
@@ -390,7 +393,11 @@ Apakah Anda ingin melakukan klaim garansi untuk order ini? Admin akan meninjau d
 
 export async function handleApplyWarrantyClaim(ctx: BotContext, data: string): Promise<Response> {
   const { chatId, telegramId } = ctx;
-  const trxId = data.replace("apply_warranty_claim_", "").trim();
+  // Format: apply_warranty_claim_{trxId}_{issueType}
+  const cleanData = data.replace("apply_warranty_claim_", "").trim();
+  const parts = cleanData.split("_");
+  const trxId = parts[0];
+  const issueType = parts[1] || "general";
 
   // Reset any old session
   await supabase.from("warranty_sessions").delete().eq("telegram_id", telegramId);
@@ -402,7 +409,18 @@ export async function handleApplyWarrantyClaim(ctx: BotContext, data: string): P
     step: "awaiting_photo",
   });
 
+  const issueLabels: Record<string, string> = {
+    login: "🔑 Salah Password / Gagal Login",
+    disable: "❌ Akun Disable / Screen Limit",
+    profile: "📺 Profile / PIN Salah",
+    other: "❓ Kendala Lainnya",
+  };
+
+  const selectedIssue = issueLabels[issueType] || "General Issue";
+
   const text = `📸 <b>KLAIM GARANSI - FOTO KENDALA</b>
+
+Kendala: <b>${escapeHtml(selectedIssue)}</b>
 
 Silakan kirimkan foto/screenshot bukti kendala pada akun Anda secara langsung di chat ini.`;
 
@@ -497,7 +515,7 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
   const shortId = getFriendlyShortId(t);
   const prodName = t?.products?.name || "Produk";
 
-  // Create Support Ticket
+  // Create Support Ticket in Database (Syncs with Web Dashboard)
   const { data: ticket, error: ticketError } = await supabase
     .from("tickets")
     .insert({
@@ -534,7 +552,7 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
     .from("sold_accounts")
     .select("id, warranty_claim_count")
     .eq("transaction_id", trxId)
-    .single();
+    .maybeSingle();
 
   if (sa) {
     await supabase
@@ -546,14 +564,13 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
       .eq("id", sa.id);
   }
 
-  // Custom Ticket ID format: #<ID> - [SID<YYYYMMDD>-<ShortOrder>-<PaddedSerial>]
   const date = ticket.created_at ? new Date(ticket.created_at) : new Date();
   const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
   const yyyy = wibDate.getUTCFullYear();
   const mm = String(wibDate.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(wibDate.getUTCDate()).padStart(2, "0");
   
-  const rawTrxId = t?.invoice || t?.trx_code || t?.id || "";
+  const rawTrxId = t?.trx_code || t?.invoice || t?.id || "";
   let orderHash = rawTrxId.includes("-") ? rawTrxId.split("-")[0] : rawTrxId;
   if (orderHash.startsWith("SALDO-")) orderHash = orderHash.replace("SALDO-", "");
   if (orderHash.startsWith("ORDER-")) orderHash = orderHash.replace("ORDER-", "");
@@ -563,7 +580,7 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
   const paddedSerial = String(ticket.id).padStart(6, "0");
   const customTicketCode = `SID${yyyy}${mm}${dd}-${orderHash}-${paddedSerial}`;
 
-  // Notify admins
+  // Notify admins in Telegram with Interactive Replace & Reject buttons
   const username = user.username ? `@${escapeHtml(user.username)}` : `User ${telegramId}`;
   const adminText = `⚠️ <b>KLAIM GARANSI BARU</b>
 
@@ -571,15 +588,32 @@ Aktor: ${username}
 ID Telegram: <code>${telegramId}</code>
 
 └ Tiket ID : <b>#${ticket.id} - [${customTicketCode}]</b>
-└ Order ID : <code>${shortId}</code>
+└ Kode Order : <code>${escapeHtml(rawTrxId)}</code> (${shortId})
 └ Produk : <b>${escapeHtml(prodName)}</b>
 └ Total Klaim : <b>${(sa?.warranty_claim_count ?? 0) + 1}x</b>
 └ Keterangan : <i>${escapeHtml(description)}</i>
 
-Silakan tindak lanjuti melalui panel admin.`;
+<i>Tanggapi garansi ini melalui tombol di bawah atau Web Panel Dashboard.</i>`;
+
+  const adminKb = {
+    inline_keyboard: [
+      [
+        {
+          text: "✅ Replace Akun Otomatis",
+          callback_data: `replace_acc_${ticket.id}`,
+        },
+      ],
+      [
+        {
+          text: "❌ Tolak Garansi",
+          callback_data: `reject_warranty_${ticket.id}`,
+        },
+      ],
+    ],
+  };
 
   const { notifyAdminsOrOwners } = await import("../../services/order/order.helper.ts");
-  await notifyAdminsOrOwners(adminText);
+  await notifyAdminsOrOwners(adminText, adminKb);
 
   const userSuccessText = buildTicketNotificationText({
     ticketCode: customTicketCode,
@@ -590,6 +624,170 @@ Silakan tindak lanjuti melalui panel admin.`;
   });
 
   await send(chatId, userSuccessText);
+  return ok();
+}
+
+export async function handleReplaceAccountWarranty(ctx: BotContext, data: string): Promise<Response> {
+  const { chatId, telegramId } = ctx;
+  const { getRoleByTelegramId } = await import("../../user.repo.ts");
+  const { isAdminOrOwner } = await import("../../services/order/order.helper.ts");
+
+  const role = await getRoleByTelegramId(Number(telegramId));
+  if (!isAdminOrOwner(role)) {
+    await send(chatId, "❌ Akses ditolak. Hanya admin/owner.");
+    return ok();
+  }
+
+  const ticketId = parseInt(data.replace("replace_acc_", "").trim(), 10);
+  if (isNaN(ticketId)) {
+    await send(chatId, "❌ Ticket ID tidak valid.");
+    return ok();
+  }
+
+  const { data: ticket, error: ticketErr } = await supabase
+    .from("tickets")
+    .select("*, users(telegram_id)")
+    .eq("id", ticketId)
+    .single();
+
+  if (ticketErr || !ticket) {
+    await send(chatId, "❌ Tiket tidak ditemukan.");
+    return ok();
+  }
+
+  const trxId = ticket.transaction_id;
+  if (!trxId) {
+    await send(chatId, "❌ Transaksi order tidak terasosiasi dengan tiket ini.");
+    return ok();
+  }
+
+  const { data: trx } = await supabase
+    .from("transactions")
+    .select("*, products(name, product_code, tos_description, description)")
+    .eq("id", trxId)
+    .single();
+
+  if (!trx) {
+    await send(chatId, "❌ Transaksi tidak ditemukan.");
+    return ok();
+  }
+
+  const pId = trx.product_id;
+
+  const { data: availableAcc, error: accErr } = await supabase
+    .from("product_accounts")
+    .select("*")
+    .eq("product_id", pId)
+    .eq("status", "available")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (accErr || !availableAcc) {
+    await send(
+      chatId,
+      "❌ <b>Stok Pengganti Habis!</b>\nSilakan restock produk ini terlebih dahulu sebelum menekan tombol Replace Akun Otomatis."
+    );
+    return ok();
+  }
+
+  await supabase
+    .from("product_accounts")
+    .update({ status: "sold", sold_at: new Date().toISOString() })
+    .eq("id", availableAcc.id);
+
+  const { data: sa } = await supabase
+    .from("sold_accounts")
+    .select("*")
+    .eq("transaction_id", trxId)
+    .maybeSingle();
+
+  const newClaimCount = (sa?.warranty_claim_count || 0) + 1;
+  const newSnapshot = {
+    email: availableAcc.email,
+    password: availableAcc.password,
+    pin: availableAcc.pin,
+    profile: availableAcc.profile,
+  };
+
+  if (sa) {
+    await supabase
+      .from("sold_accounts")
+      .update({
+        account_id: availableAcc.id,
+        account_snapshot: newSnapshot,
+        warranty_claim_count: newClaimCount,
+        warranty_last_claim_at: new Date().toISOString(),
+      })
+      .eq("id", sa.id);
+  }
+
+  await supabase
+    .from("tickets")
+    .update({ status: "resolved", resolved_at: new Date().toISOString() })
+    .eq("id", ticketId);
+
+  const shortId = getFriendlyShortId(trx);
+  const buyerTelegramId = ticket.users?.telegram_id || ticket.telegram_id;
+  const prodName = trx.products?.name || "Produk";
+
+  const buyerNotifyText = `🔄 <b>PENGGANTIAN AKUN GARANSI BERHASIL</b>
+
+└ Kode Order : <code>${escapeHtml(trx.trx_code || shortId)}</code> (${shortId})
+└ Produk : <b>${escapeHtml(prodName)}</b>
+
+<b>[ Data Akun Pengganti ]</b>
+└ Email : <code>${escapeHtml(availableAcc.email || "-")}</code>
+└ Password : <code>${escapeHtml(availableAcc.password || "-")}</code>
+└ Profile : <b>${escapeHtml(availableAcc.profile || "-")}</b>
+└ PIN : <code>${escapeHtml(availableAcc.pin || "-")}</code>
+
+📌 <i>Klaim garansi ke-${newClaimCount} Anda telah selesai diproses oleh Admin.</i>`;
+
+  if (buyerTelegramId) {
+    await send(Number(buyerTelegramId), buyerNotifyText);
+  }
+
+  await send(chatId, `✅ Akun pengganti garansi untuk tiket #${ticketId} (${shortId}) berhasil dikirim ke pembeli!`);
+  return ok();
+}
+
+export async function handleRejectWarranty(ctx: BotContext, data: string): Promise<Response> {
+  const { chatId, telegramId } = ctx;
+  const { getRoleByTelegramId } = await import("../../user.repo.ts");
+  const { isAdminOrOwner } = await import("../../services/order/order.helper.ts");
+
+  const role = await getRoleByTelegramId(Number(telegramId));
+  if (!isAdminOrOwner(role)) {
+    await send(chatId, "❌ Akses ditolak. Hanya admin/owner.");
+    return ok();
+  }
+
+  const ticketId = parseInt(data.replace("reject_warranty_", "").trim(), 10);
+  if (isNaN(ticketId)) {
+    await send(chatId, "❌ Ticket ID tidak valid.");
+    return ok();
+  }
+
+  await supabase
+    .from("tickets")
+    .update({ status: "resolved", resolved_at: new Date().toISOString() })
+    .eq("id", ticketId);
+
+  const { data: ticket } = await supabase
+    .from("tickets")
+    .select("telegram_id")
+    .eq("id", ticketId)
+    .single();
+
+  if (ticket?.telegram_id) {
+    await send(
+      Number(ticket.telegram_id),
+      `❌ <b>KLAIM GARANSI DITOLAK</b>\n\nMohon maaf, klaim garansi Anda tidak dapat disetujui oleh Admin. Silakan hubungi CS jika ada pertanyaan lanjutan.`
+    );
+  }
+
+  await send(chatId, `❌ Tiket garansi #${ticketId} telah ditolak.`);
   return ok();
 }
 

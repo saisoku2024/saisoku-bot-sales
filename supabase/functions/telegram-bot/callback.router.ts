@@ -91,6 +91,14 @@ export async function routeCallback(
     const { handleApplyWarrantyClaim } = await import("./src/handlers/active_orders.handler.ts");
     return await handleApplyWarrantyClaim(ctx, data);
   }
+  if (data.startsWith("replace_acc_")) {
+    const { handleReplaceAccountWarranty } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleReplaceAccountWarranty(ctx, data);
+  }
+  if (data.startsWith("reject_warranty_")) {
+    const { handleRejectWarranty } = await import("./src/handlers/active_orders.handler.ts");
+    return await handleRejectWarranty(ctx, data);
+  }
   if (data === "cancel_warranty_session") {
     const { handleCancelWarrantySession } = await import("./src/handlers/active_orders.handler.ts");
     return await handleCancelWarrantySession(ctx);
