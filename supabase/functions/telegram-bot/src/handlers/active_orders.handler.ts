@@ -367,7 +367,7 @@ export async function handleClaimWarrantyMenu(ctx: BotContext, data: string): Pr
     .from("sold_accounts")
     .select("warranty_claim_count")
     .eq("transaction_id", trxId)
-    .single();
+    .maybeSingle();
 
   const claimCount = sa?.warranty_claim_count ?? 0;
 
@@ -395,9 +395,9 @@ export async function handleApplyWarrantyClaim(ctx: BotContext, data: string): P
   const { chatId, telegramId } = ctx;
   // Format: apply_warranty_claim_{trxId}_{issueType}
   const cleanData = data.replace("apply_warranty_claim_", "").trim();
-  const parts = cleanData.split("_");
-  const trxId = parts[0];
-  const issueType = parts[1] || "general";
+  const lastUnderscore = cleanData.lastIndexOf("_");
+  const trxId = lastUnderscore !== -1 ? cleanData.slice(0, lastUnderscore) : cleanData;
+  const issueType = lastUnderscore !== -1 ? cleanData.slice(lastUnderscore + 1) : "general";
 
   // Reset any old session
   await supabase.from("warranty_sessions").delete().eq("telegram_id", telegramId);
