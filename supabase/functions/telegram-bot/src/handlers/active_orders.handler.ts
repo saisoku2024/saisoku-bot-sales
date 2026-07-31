@@ -379,9 +379,9 @@ Silakan pilih jenis kendala akun yang Anda alami:`;
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🔑 Salah Password / Gagal Login", callback_data: `wc_${trxId}_login` }],
-      [{ text: "❌ Akun Disable / Screen Limit", callback_data: `wc_${trxId}_disable` }],
-      [{ text: "📺 Profile / PIN Salah", callback_data: `wc_${trxId}_profile` }],
+      [{ text: "🚫 Akun Disable / Payment", callback_data: `wc_${trxId}_disable` }],
+      [{ text: "🏠 Household Device", callback_data: `wc_${trxId}_household` }],
+      [{ text: "🔑 Salah Password / PIN", callback_data: `wc_${trxId}_login` }],
       [{ text: "❓ Kendala Lainnya", callback_data: `wc_${trxId}_other` }],
       [{ text: "⬅️ Batal", callback_data: "active_orders" }],
     ],
@@ -410,9 +410,9 @@ export async function handleApplyWarrantyClaim(ctx: BotContext, data: string): P
   });
 
   const issueLabels: Record<string, string> = {
-    login: "🔑 Salah Password / Gagal Login",
-    disable: "❌ Akun Disable / Screen Limit",
-    profile: "📺 Profile / PIN Salah",
+    disable: "🚫 Akun Disable / Payment",
+    household: "🏠 Household Device",
+    login: "🔑 Salah Password / PIN",
     other: "❓ Kendala Lainnya",
   };
 
