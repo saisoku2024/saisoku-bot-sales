@@ -178,8 +178,13 @@ export async function routeCallback(
     return await handlers.handleBuySaldo(ctx, data);
   }
 
-  if (data.startsWith("buy_now_")) {
+  if (data.startsWith("buy_now_") || data.startsWith("checkout_")) {
     return await handlers.handleBuyNow(ctx, data);
+  }
+
+  if (data.startsWith("create_qris_")) {
+    const { handleCreateQris } = await import("./services/order.service.ts");
+    return await handleCreateQris(ctx, data);
   }
 
   if (data === "stock_menu") {

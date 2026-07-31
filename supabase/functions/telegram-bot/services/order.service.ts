@@ -121,8 +121,11 @@ export async function handleBuyNow(
   const { chatId, telegramId } = ctx;
 
   const partsCb = data.split("_");
-  const pId = partsCb[2];
-  const qty = Math.max(1, Number(partsCb[3] || 1));
+  // data format: buy_now_{pId}_{qty} or checkout_{pId}_{qty}_{useDeposit}
+  const isCheckoutToggle = partsCb[0] === "checkout";
+  const pId = isCheckoutToggle ? partsCb[1] : partsCb[2];
+  const qty = Math.max(1, Number((isCheckoutToggle ? partsCb[2] : partsCb[3]) || 1));
+  const explicitUseDeposit = isCheckoutToggle ? Number(partsCb[3]) : null;
 
   if (!pId || !qty || qty <= 0) {
     await send(chatId, "❌ Data order tidak valid.");
@@ -214,11 +217,126 @@ Selesaikan atau batalkan order lama dulu sebelum membuat order baru.`
     promoActive ? 0 : loyalty?.discount_amount || 0,
   );
 
-  // Deposit deduction calculation for QRIS / Buy Now:
-  // Min deposit to use = 3,000; Max deposit deduction = 10,000
+  const userBalance = Number(u.balance || 0);
+  // Default useDeposit to 1 (active) if balance >= 3000 unless explicitly toggled
+  const isUseDepositActive = explicitUseDeposit !== null ? explicitUseDeposit === 1 : userBalance >= 3000;
+
+  let depositDeduction = 0;
+  if (isUseDepositActive && userBalance >= 3000) {
+    depositDeduction = Math.min(userBalance, 10000);
+  }
+
+  const subtotalAfterDiscount = Math.max(
+    0,
+    totalPrice - loyaltyDiscount - depositDeduction,
+  );
+
+  const checkoutText = `🛒 <b>KONFIRMASI CHECKOUT</b>
+
+<b>Rincian Order</b>
+└ Produk : ${escapeHtml(product.product_name)}
+└ Kode : ${escapeHtml(product.product_code || "-")}
+└ Role Harga : ${escapeHtml(product.user_role || u.role)}
+└ Jumlah : ${qty}
+└ Harga Satuan : ${rupiah(unitPrice)}
+└ Total Produk : ${rupiah(totalPrice)}
+${loyaltyDiscount > 0 ? `└ Diskon Loyalty : -${rupiah(loyaltyDiscount)}\n` : ""}${userBalance >= 3000 ? `└ Potongan Saldo : ${depositDeduction > 0 ? `-${rupiah(depositDeduction)} (Saldo ${rupiah(userBalance)})` : "Rp 0 (NONAKTIF)"}\n` : "└ Potongan Saldo : Saldo < Rp 3.000 (Tdk bisa digunakan)\n"}└ Sisa Tagihan QRIS : <b>${rupiah(subtotalAfterDiscount)}</b>
+
+<i>Gunakan tombol di bawah untuk mengatur potongan saldo atau klaim voucher sebelum menerbitkan QRIS.</i>`;
+
+  const keyboard = {
+    inline_keyboard: [
+      userBalance >= 3000
+        ? [
+            {
+              text: isUseDepositActive ? "💳 Potong Saldo: [ AKTIF ]" : "💳 Potong Saldo: [ NONAKTIF ]",
+              callback_data: `checkout_${pId}_${qty}_${isUseDepositActive ? 0 : 1}`,
+            },
+          ]
+        : [],
+      [
+        {
+          text: "🎟️ Klaim / Input Voucher",
+          callback_data: "claim_voucher",
+        },
+      ],
+      [
+        {
+          text: "📲 Terbitkan QRIS & Bayar",
+          callback_data: `create_qris_${pId}_${qty}_${isUseDepositActive ? 1 : 0}`,
+        },
+      ],
+      [{ text: "⬅️ Batal / Kembali", callback_data: "list_produk" }],
+    ].filter((row) => row.length > 0),
+  };
+
+  if (ctx.callback?.message?.message_id) {
+    const { editMessage } = await import("../telegram.ts");
+    await editMessage(chatId, ctx.callback.message.message_id, checkoutText, keyboard);
+  } else {
+    await send(chatId, checkoutText, keyboard);
+  }
+
+  return ok();
+}
+
+export async function handleCreateQris(
+  ctx: BotContext,
+  data: string
+): Promise<Response> {
+  const { chatId, telegramId } = ctx;
+
+  const partsCb = data.split("_");
+  // create_qris_{pId}_{qty}_{useDeposit}
+  const pId = partsCb[2];
+  const qty = Math.max(1, Number(partsCb[3] || 1));
+  const isUseDepositActive = Number(partsCb[4] || 0) === 1;
+
+  if (!pId || !qty || qty <= 0) {
+    await send(chatId, "❌ Data order tidak valid.");
+    return ok();
+  }
+
+  const userId = await getUserIdByTelegramId(telegramId);
+  if (!userId) {
+    await send(chatId, "❌ User tidak ditemukan.");
+    return ok();
+  }
+
+  const product = await getProductDetailForBot(pId, userId);
+  if (!product) {
+    await send(chatId, "❌ Produk tidak ditemukan atau sedang nonaktif.");
+    return ok();
+  }
+
+  const { data: u, error: userDataError } = await supabase
+    .from("users")
+    .select("*")
+    .eq("telegram_id", telegramId)
+    .single();
+
+  if (userDataError || !u) {
+    await send(chatId, "❌ User tidak ditemukan.");
+    return ok();
+  }
+
+  const unitPrice = Number(product.final_price || 0);
+  const totalPrice = unitPrice * qty;
+
+  const { data: loyaltyData } = await supabase.rpc(
+    "get_user_loyalty_summary",
+    {
+      p_telegram_id: telegramId,
+    },
+  );
+
+  const loyalty = loyaltyData?.[0];
+  const promoActive = Boolean(product.is_promo_active) && Number(product.promo_price || 0) > 0;
+  const loyaltyDiscount = Number(promoActive ? 0 : loyalty?.discount_amount || 0);
+
   const userBalance = Number(u.balance || 0);
   let depositDeduction = 0;
-  if (userBalance >= 3000) {
+  if (isUseDepositActive && userBalance >= 3000) {
     depositDeduction = Math.min(userBalance, 10000);
   }
 
@@ -228,9 +346,7 @@ Selesaikan atau batalkan order lama dulu sebelum membuat order baru.`
   );
 
   const uniqueCode = generateUniqueCode();
-
-  const finalAmount =
-    subtotalAfterDiscount + uniqueCode;
+  const finalAmount = subtotalAfterDiscount + uniqueCode;
 
   if (unitPrice <= 0) {
     await send(chatId, "❌ Harga produk tidak valid.");
@@ -257,7 +373,7 @@ Selesaikan atau batalkan order lama dulu sebelum membuat order baru.`
     .single();
 
   if (orderInsertError || !order) {
-    console.error("BUY NOW orderInsertError:", orderInsertError);
+    console.error("CREATE QRIS orderInsertError:", orderInsertError);
     await send(chatId, "❌ Gagal membuat order.");
     return ok();
   }
