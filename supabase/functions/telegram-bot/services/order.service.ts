@@ -7,6 +7,7 @@ import {
   formatMultiline,
   generateTrxCode,
   generateUniqueCode,
+  getJakartaDateKey,
 } from "../helper.ts";
 import {
   getRoleByTelegramId,
@@ -353,6 +354,19 @@ export async function handleCreateQris(
     return ok();
   }
 
+  // Calculate daily order sequence
+  const dateKey = getJakartaDateKey().replace(/-/g, "");
+  const todayStart = `${getJakartaDateKey()}T00:00:00.000Z`;
+
+  const { count } = await supabase
+    .from("pending_orders")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", todayStart);
+
+  const seqNumber = (count || 0) + 1;
+  const trxCode = generateTrxCode("SSID", seqNumber);
+  const shortSeq = `#${String(seqNumber).padStart(6, "0")}`;
+
   const { data: order, error: orderInsertError } = await supabase
     .from("pending_orders")
     .insert({
@@ -368,6 +382,7 @@ export async function handleCreateQris(
       final_amount: finalAmount,
       status: "waiting_payment",
       payment_method: "manual",
+      trx_code: trxCode,
     })
     .select()
     .single();
@@ -378,10 +393,12 @@ export async function handleCreateQris(
     return ok();
   }
 
+  const displayCode = order.trx_code || trxCode;
+
   const invoiceText = `💳 <b>PEMBAYARAN BUY NOW (QRIS)</b>
 
 <b>Informasi Order</b>
-└ Order ID : <code>${escapeHtml(order.id)}</code>
+└ Kode Order : <code>${escapeHtml(displayCode)}</code> (${shortSeq})
 └ Produk : ${escapeHtml(product.product_name)}
 └ Kode : ${escapeHtml(product.product_code || "-")}
 └ Role Harga : ${escapeHtml(product.user_role || u.role)}
@@ -464,11 +481,13 @@ export async function handleConfirmOrder(
     console.error("CONFIRM ORDER productError:", productError);
   }
 
+  const displayCode = order?.trx_code || order.id;
+
   await send(
     chatId,
     `⏳ Konfirmasi pembayaran order dikirim ke owner.
 
-└ Order ID : <code>${escapeHtml(orderId)}</code>
+└ Kode Order : <code>${escapeHtml(displayCode)}</code>
 └ Status : <b>${escapeHtml(result.out_status || "pending")}</b>`
   );
 
@@ -477,7 +496,7 @@ export async function handleConfirmOrder(
 User: ${username ? `@${escapeHtml(username)}` : "-"}
 ID: <code>${telegramId}</code>
 
-└ Order ID : <code>${escapeHtml(order.id)}</code>
+└ Kode Order : <code>${escapeHtml(displayCode)}</code>
 └ Produk : ${escapeHtml(product?.name || "Produk")}
 └ Kode : ${escapeHtml(product?.product_code || "-")}
 └ Qty : ${order.qty}
@@ -717,9 +736,12 @@ export async function handleApproveOrder(
     profile: row.account_snapshot?.profile ?? "-",
   }));
 
+  const displayCode = order?.trx_code || orderId;
+
   const summaryText = `✅ <b>PEMBELIAN BERHASIL!</b>
 
 <b>Informasi Pembelian</b>
+└ Kode Order : <code>${escapeHtml(displayCode)}</code>
 └ Produk : ${escapeHtml(product?.name || "Produk")}
 └ Kode : ${escapeHtml(product?.product_code || "-")}
 └ Role Harga : ${escapeHtml(buyer?.role || "-")}
@@ -742,7 +764,7 @@ export async function handleApproveOrder(
     console.error("APPROVE ORDER sendPurchaseResult error:", err);
   }
 
-  await send(chatId, `✅ Order ${escapeHtml(orderId)} berhasil di-approve.`);
+  await send(chatId, `✅ Order ${escapeHtml(displayCode)} berhasil di-approve.`);
   return ok();
 }
 
