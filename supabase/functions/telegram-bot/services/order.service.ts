@@ -380,6 +380,39 @@ export async function handleCreateQris(
   const trxCode = generateTrxCode("SSID", seqNumber);
   const shortSeq = `#${String(seqNumber).padStart(6, "0")}`;
 
+  const vpayApiKey = ENV.VPAY_API_KEY;
+  let paymentRefId: string | null = null;
+  let finalQrImage = ENV.QRIS_IMAGE_URL;
+  let finalAmountPay = finalAmount;
+  let finalUniqueCode = uniqueCode;
+
+  if (vpayApiKey && subtotalAfterDiscount >= 1000) {
+    try {
+      const response = await fetch("https://vitopediapay.com/api/pg/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${vpayApiKey}`
+        },
+        body: JSON.stringify({
+          amount: subtotalAfterDiscount,
+          ref_id: trxCode
+        })
+      });
+      const result = await response.json();
+      if (result.success && result.data) {
+        paymentRefId = result.data.id;
+        finalQrImage = result.data.qr_image;
+        finalAmountPay = Number(result.data.total);
+        finalUniqueCode = Number(result.data.unique_code);
+      } else {
+        console.error("VPay API error response:", result);
+      }
+    } catch (err) {
+      console.error("VPay API connection error:", err);
+    }
+  }
+
   const { data: order, error: orderInsertError } = await supabase
     .from("pending_orders")
     .insert({
@@ -391,10 +424,11 @@ export async function handleCreateQris(
       total_price: totalPrice,
       loyalty_discount: loyaltyDiscount,
       subtotal_after_discount: subtotalAfterDiscount,
-      unique_code: uniqueCode,
-      final_amount: finalAmount,
+      unique_code: finalUniqueCode,
+      final_amount: finalAmountPay,
       status: "waiting_payment",
-      payment_method: "manual",
+      payment_method: paymentRefId ? "qris_dynamic" : "manual",
+      payment_reference_id: paymentRefId
     })
     .select()
     .single();
@@ -418,21 +452,191 @@ export async function handleCreateQris(
 └ Harga Satuan : ${rupiah(unitPrice)}
 └ Total Produk : ${rupiah(totalPrice)}
 ${loyaltyDiscount > 0 ? `└ Diskon Loyalty : ${rupiah(loyaltyDiscount)}\n` : ""}${depositDeduction > 0 ? `└ Potongan Saldo : ${rupiah(depositDeduction)} (Saldo ${rupiah(userBalance)})\n` : ""}└ Subtotal : ${rupiah(subtotalAfterDiscount)}
-└ Kode Unik : ${uniqueCode}
-└ Tagihan Final : <b>${rupiah(finalAmount)}</b>
+└ Kode Unik : ${finalUniqueCode}
+└ Tagihan Final : <b>${rupiah(finalAmountPay)}</b>
 
 Silakan lakukan pembayaran via QRIS.
-Setelah bayar, klik tombol <b>Sudah Bayar</b>.`;
+${paymentRefId ? "Setelah bayar, klik tombol <b>Cek Status Pembayaran</b>." : "Setelah bayar, klik tombol <b>Sudah Bayar</b>."}`;
 
   const keyboard = {
-    inline_keyboard: [
-      [{ text: "✅ Sudah Bayar", callback_data: `confirm_order_${order.id}` }],
-      [{ text: "❌ Batal", callback_data: `cancel_order_${order.id}` }],
-    ],
+    inline_keyboard: paymentRefId
+      ? [
+          [{ text: "🔄 Cek Status Pembayaran", callback_data: `check_pay_pg_${order.id}` }],
+          [{ text: "❌ Batal", callback_data: `cancel_order_${order.id}` }],
+        ]
+      : [
+          [{ text: "✅ Sudah Bayar", callback_data: `confirm_order_${order.id}` }],
+          [{ text: "❌ Batal", callback_data: `cancel_order_${order.id}` }],
+        ],
   };
 
-  await sendPhoto(chatId, ENV.QRIS_IMAGE_URL, invoiceText, keyboard);
+  await sendPhoto(chatId, finalQrImage, invoiceText, keyboard);
   return ok();
+}
+
+export async function handleCheckPaymentPg(
+  ctx: BotContext,
+  data: string
+): Promise<Response> {
+  const { chatId } = ctx;
+  const orderId = data.replace("check_pay_pg_", "").trim();
+
+  if (!orderId) {
+    await send(chatId, "❌ Order ID tidak valid.");
+    return ok();
+  }
+
+  const { data: order, error } = await supabase
+    .from("pending_orders")
+    .select("*")
+    .eq("id", orderId)
+    .single();
+
+  if (error || !order) {
+    await send(chatId, "❌ Detail order tidak ditemukan.");
+    return ok();
+  }
+
+  if (order.status !== "waiting_payment") {
+    await send(chatId, `ℹ️ Order ini sudah diproses (Status: ${order.status}).`);
+    return ok();
+  }
+
+  const paymentRef = order.payment_reference_id;
+  if (!paymentRef) {
+    await send(chatId, "❌ Referensi pembayaran gateway tidak ditemukan.");
+    return ok();
+  }
+
+  const vpayApiKey = ENV.VPAY_API_KEY;
+  if (!vpayApiKey) {
+    await send(chatId, "❌ Sistem VPay sedang tidak dikonfigurasi.");
+    return ok();
+  }
+
+  try {
+    const checkRes = await fetch(`https://vitopediapay.com/api/pg/check/${paymentRef}`, {
+      headers: {
+        "Authorization": `Bearer ${vpayApiKey}`
+      }
+    });
+    const checkData = await checkRes.json();
+
+    if (!checkData.success || !checkData.data) {
+      await send(chatId, "❌ Gagal memverifikasi status ke Payment Gateway.");
+      return ok();
+    }
+
+    const pgStatus = checkData.data.status; // pending, paid, expired
+
+    if (pgStatus === "paid") {
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "approve_pending_order",
+        {
+          p_order_id: orderId,
+          p_actor_telegram_id: 72246533, // Auto approve using owner ID
+          p_payment_method: "qris_dynamic"
+        }
+      );
+
+      if (rpcError || !rpcData?.success) {
+        console.error("Auto-approve error:", rpcError || rpcData?.message);
+        await send(
+          chatId,
+          `❌ Pembayaran sukses terverifikasi, tetapi gagal merilis stok: ${rpcData?.message || "Error database"}. Silakan hubungi admin.`
+        );
+        return ok();
+      }
+
+      const trxId = rpcData.transaction_id;
+      const { data: trx } = await supabase
+        .from("transactions")
+        .select("id, trx_code, product_accounts(email, password, profile, pin)")
+        .eq("id", trxId)
+        .maybeSingle();
+
+      const paRaw = trx?.product_accounts;
+      const pa = Array.isArray(paRaw) ? paRaw[0] : paRaw;
+      let items: any[] = [];
+      if (pa && pa.email) {
+        await supabase
+          .from("sold_accounts")
+          .update({
+            account_snapshot: {
+              email: pa.email,
+              password: pa.password,
+              profile: pa.profile,
+              pin: pa.pin,
+              sold_at: new Date().toISOString(),
+            },
+          })
+          .eq("transaction_id", trxId);
+
+        items = [{
+          email: pa.email,
+          password: pa.password,
+          profile: pa.profile,
+          pin: pa.pin,
+        }];
+      }
+
+      const { data: product } = await supabase
+        .from("products")
+        .select("name, product_code, tos_description, description")
+        .eq("id", order.product_id)
+        .single();
+
+      const { getFriendlyShortId } = await import("../src/handlers/active_orders.handler.ts");
+      const shortSeq = getFriendlyShortId(trx?.trx_code || orderId);
+
+      const summaryText = `🎉 <b>PEMBAYARAN QRIS DISETUJUI OTOMATIS!</b>
+  
+<b>Informasi Pembelian</b>
+└ Kode Order : <code>${escapeHtml(trx?.trx_code || orderId)}</code> (${shortSeq})
+└ Produk : ${escapeHtml(product?.name || "Produk")}
+└ Kode : ${escapeHtml(product?.product_code || "-")}
+└ Jumlah : ${Number(order.qty || 1)}
+└ Total : ${rupiah(Number(order.subtotal_after_discount || 0))}
+└ Metode : QRIS Dinamis`;
+
+      await sendPurchaseResult(
+        chatId,
+        summaryText,
+        items,
+        product?.name || "Produk",
+        product?.tos_description || product?.description
+      );
+
+      const adminText = `🔔 <b>ORDER QRIS OTOMATIS BERHASIL!</b>
+  
+└ Order ID : <code>${orderId}</code>
+└ Kode Order : <code>${trx?.trx_code}</code>
+└ Pelanggan : <code>${chatId}</code>
+└ Produk : ${product?.name}
+└ Jumlah : ${order.qty}
+└ Total Tagihan : ${rupiah(order.final_amount)}`;
+      await send(72246533, adminText);
+      return ok();
+    } else if (pgStatus === "expired") {
+      await supabase
+        .from("pending_orders")
+        .update({ status: "cancelled" })
+        .eq("id", orderId);
+
+      await send(chatId, "⚠️ <b>Waktu Pembayaran Habis!</b>\n\nTagihan QRIS ini sudah kedaluwarsa (expired). Silakan buat pesanan baru.");
+      return ok();
+    } else {
+      await send(
+        chatId,
+        "⚠️ <b>Pembayaran Belum Diterima</b>\n\nKami belum mendeteksi pembayaran Anda. Harap scan QRIS di atas dan transfer sesuai nominal pas (termasuk kode unik) sebelum menekan tombol cek status kembali."
+      );
+      return ok();
+    }
+  } catch (err) {
+    console.error("handleCheckPaymentPg error:", err);
+    await send(chatId, "❌ Terjadi kesalahan saat memeriksa status pembayaran.");
+    return ok();
+  }
 }
 
 export async function handleConfirmOrder(

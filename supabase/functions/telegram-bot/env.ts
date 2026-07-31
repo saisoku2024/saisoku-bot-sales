@@ -3,6 +3,7 @@ export const ENV = {
   SB_SERVICE_ROLE: Deno.env.get("SB_SERVICE_ROLE") || "",
   TELEGRAM_BOT_TOKEN: Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
   TELEGRAM_WEBHOOK_SECRET: Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "",
+  VPAY_API_KEY: Deno.env.get("VPAY_API_KEY") || "",
   QRIS_IMAGE_URL:
     Deno.env.get("QRIS_IMAGE_URL") ||
     "https://lgptunvfnosnfejzrhml.supabase.co/storage/v1/object/public/QRIS%20SHOPEE/QR%20SHOPEE.jpg",

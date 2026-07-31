@@ -195,6 +195,11 @@ export async function routeCallback(
     return await handleCreateQris(ctx, data);
   }
 
+  if (data.startsWith("check_pay_pg_")) {
+    const { handleCheckPaymentPg } = await import("./services/order.service.ts");
+    return await handleCheckPaymentPg(ctx, data);
+  }
+
   if (data === "stock_menu") {
     return await handlers.handleStockMenu(ctx);
   }
