@@ -823,10 +823,11 @@ export async function handleApproveOrder(
       .eq("id", result.transaction_id);
   }
 
+  const targetProductId = result.out_product_id || result.product_id || order?.product_id;
   const { data: product, error: productError } = await supabase
     .from("products")
     .select("*")
-    .eq("id", result.product_id)
+    .eq("id", targetProductId)
     .single();
 
   if (productError) {
