@@ -105,6 +105,25 @@ function getUpdateMeta(body: any) {
 // SERVER
 // ===============================
 serve(async (req: Request) => {
+  if (req.method === "GET") {
+    const webhookUrl = `${ENV.SB_URL}/functions/v1/telegram-bot`;
+    const res = await fetch(
+      `https://api.telegram.org/bot${ENV.TELEGRAM_BOT_TOKEN}/setWebhook`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          url: webhookUrl,
+          secret_token: ENV.TELEGRAM_WEBHOOK_SECRET,
+        }),
+      }
+    );
+    const data = await res.json();
+    return new Response(JSON.stringify({ webhookUrl, telegramResponse: data }), {
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   if (req.method !== "POST") {
     return new Response("method not allowed", { status: 405 });
   }
