@@ -30,7 +30,8 @@ function parseStockFile(content: string) {
   let invalid = 0;
 
   for (const line of lines) {
-    const parts = line.split(":");
+    const separator = line.includes("|") ? "|" : ":";
+    const parts = line.split(separator);
 
     if (parts.length !== 4) {
       invalid++;
@@ -40,10 +41,10 @@ function parseStockFile(content: string) {
     const [email, password, profile, pin] = parts;
 
     accounts.push({
-      email,
-      password,
-      profile,
-      pin,
+      email: email.trim(),
+      password: password.trim(),
+      profile: profile.trim(),
+      pin: pin.trim(),
     });
   }
 
