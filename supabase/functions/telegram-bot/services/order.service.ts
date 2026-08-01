@@ -538,16 +538,18 @@ export async function handleCheckPaymentPg(
         }
       );
 
-      if (rpcError || !rpcData?.success) {
-        console.error("Auto-approve error:", rpcError || rpcData?.message);
+      const result = rpcData?.[0];
+
+      if (rpcError || !result?.success) {
+        console.error("Auto-approve error:", rpcError || result?.message);
         await send(
           chatId,
-          `❌ Pembayaran sukses terverifikasi, tetapi gagal merilis stok: ${rpcData?.message || "Error database"}. Silakan hubungi admin.`
+          `❌ Pembayaran sukses terverifikasi, tetapi gagal merilis stok: ${result?.message || "Error database"}. Silakan hubungi admin.`
         );
         return ok();
       }
 
-      const trxId = rpcData.transaction_id;
+      const trxId = result.transaction_id;
       const { data: trx } = await supabase
         .from("transactions")
         .select("id, trx_code, product_accounts(email, password, profile, pin)")
