@@ -535,7 +535,6 @@ export async function handleCheckPaymentPg(
         {
           p_order_id: orderId,
           p_actor_telegram_id: 72246533, // Auto approve using owner ID
-          p_payment_method: "qris_dynamic"
         }
       );
 
