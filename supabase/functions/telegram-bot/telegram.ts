@@ -119,38 +119,57 @@ export async function sendPhoto(
 ) {
   let bodyData: any;
   let headers: any = {};
+  let imageBlob: Blob | null = null;
 
-  if (photo.startsWith("http")) {
+  if (photo.startsWith("data:image/")) {
+    try {
+      const commaIdx = photo.indexOf(",");
+      if (commaIdx !== -1) {
+        const base64Data = photo.substring(commaIdx + 1);
+        const mimePart = photo.substring(0, commaIdx);
+        const mime = mimePart.split(";")[0].split(":")[1] || "image/png";
+        
+        const binaryString = atob(base64Data);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        imageBlob = new Blob([bytes], { type: mime });
+      }
+    } catch (err) {
+      console.error("Failed to parse base64 photo:", err);
+    }
+  } else if (photo.startsWith("http")) {
     try {
       const imageRes = await fetch(photo);
       if (imageRes.ok) {
-        const imageBlob = await imageRes.blob();
-        
-        const formData = new FormData();
-        formData.append("chat_id", String(chatId));
-        formData.append("photo", imageBlob, "qris.png");
-        formData.append("caption", caption);
-        formData.append("parse_mode", "HTML");
-        if (kb) {
-          formData.append("reply_markup", JSON.stringify(applyInlineButtonStyles(kb)));
-        }
-        
-        bodyData = formData;
+        imageBlob = await imageRes.blob();
       } else {
-        throw new Error(`Failed to fetch photo from URL: ${imageRes.statusText}`);
+        console.error(`Failed to fetch photo from URL: ${imageRes.statusText}`);
       }
     } catch (err) {
-      console.error("Failed to upload photo as FormData, falling back to JSON url...", err);
-      headers = { "Content-Type": "application/json" };
-      bodyData = JSON.stringify({
-        chat_id: chatId,
-        photo,
-        caption,
-        parse_mode: "HTML",
-        reply_markup: applyInlineButtonStyles(kb),
-      });
+      console.error("Failed to fetch photo from URL:", err);
     }
-  } else {
+  }
+
+  if (imageBlob) {
+    try {
+      const formData = new FormData();
+      formData.append("chat_id", String(chatId));
+      formData.append("photo", imageBlob, "qris.png");
+      formData.append("caption", caption);
+      formData.append("parse_mode", "HTML");
+      if (kb) {
+        formData.append("reply_markup", JSON.stringify(applyInlineButtonStyles(kb)));
+      }
+      bodyData = formData;
+    } catch (err) {
+      console.error("Failed to upload photo as FormData, falling back to JSON...", err);
+    }
+  }
+
+  if (!bodyData) {
     headers = { "Content-Type": "application/json" };
     bodyData = JSON.stringify({
       chat_id: chatId,
