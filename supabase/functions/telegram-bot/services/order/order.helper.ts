@@ -131,14 +131,29 @@ export async function sendPurchaseResult(
       `Tanggal: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} WIB`,
       `========================================`,
       "",
-      ...items.map((itm, i) => [
-        `[${safeProductName} - Akun ${i + 1}]`,
-        `Email    : ${itm.email ?? "-"}`,
-        `Password : ${itm.password ?? "-"}`,
-        `Profile  : ${itm.profile ?? "-"}`,
-        `PIN      : ${itm.pin ?? "-"}`,
-        `----------------------------------------`,
-      ].join("\n")),
+      ...items.map((itm, i) => {
+        let emailVal = itm.email ?? "-";
+        let passwordVal = itm.password ?? "-";
+        let profileVal = itm.profile ?? "-";
+        let pinVal = itm.pin ?? "-";
+
+        if (emailVal.includes("|")) {
+          const parts = emailVal.split("|");
+          emailVal = parts[0] || "-";
+          if (parts[1]) passwordVal = parts[1];
+          if (parts[2]) profileVal = parts[2];
+          if (parts[3]) pinVal = parts[3];
+        }
+
+        return [
+          `[${safeProductName} - Akun ${i + 1}]`,
+          `Email    : ${emailVal}`,
+          `Password : ${passwordVal}`,
+          `Profile  : ${profileVal}`,
+          `PIN      : ${pinVal}`,
+          `----------------------------------------`,
+        ].join("\n");
+      }),
       "",
       "Simpan file ini dengan aman. Jangan bagikan data akun kepada pihak lain.",
     ].join("\n");
@@ -157,23 +172,32 @@ export async function sendPurchaseResult(
       `📄 ${items.length} akun dikirim dalam file TXT.`
     );
   } else {
-  for (let i = 0; i < items.length; i++) {
-    const itm = items[i];
+    for (let i = 0; i < items.length; i++) {
+      const itm = items[i];
 
-    const itemText = `<b>[${escapeHtml(
-      productName
-    )} - Akun ${i + 1}]</b>
-└ Email : <code>${escapeHtml(
-      itm.email ?? "-"
-    )}</code>
-└ Password : <code>${escapeHtml(
-      itm.password ?? "-"
-    )}</code>
-└ Profile : ${escapeHtml(itm.profile ?? "-")}
-└ PIN : ${escapeHtml(itm.pin ?? "-")}`;
+      let emailVal = itm.email ?? "-";
+      let passwordVal = itm.password ?? "-";
+      let profileVal = itm.profile ?? "-";
+      let pinVal = itm.pin ?? "-";
 
-    await sendLongMessage(chatId, itemText);
-  }
+      if (emailVal.includes("|")) {
+        const parts = emailVal.split("|");
+        emailVal = parts[0] || "-";
+        if (parts[1]) passwordVal = parts[1];
+        if (parts[2]) profileVal = parts[2];
+        if (parts[3]) pinVal = parts[3];
+      }
+
+      const itemText = `<b>[${escapeHtml(
+        productName
+      )} - Akun ${i + 1}]</b>
+└ Email : <code>${escapeHtml(emailVal)}</code>
+└ Password : <code>${escapeHtml(passwordVal)}</code>
+└ Profile : ${escapeHtml(profileVal)}
+└ PIN : ${escapeHtml(pinVal)}`;
+
+      await sendLongMessage(chatId, itemText);
+    }
   }
 
   const tos = formatMultiline(tosDescription);

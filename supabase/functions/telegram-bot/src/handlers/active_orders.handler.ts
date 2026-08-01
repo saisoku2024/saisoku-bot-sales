@@ -132,11 +132,25 @@ function getTransactionAccount(t: any): any {
   const sa = getSoldAccount(t);
   const snapshot = sa?.account_snapshot;
   const pa = t?.product_accounts;
+
+  let rawEmail = snapshot?.email || pa?.email || "-";
+  let rawPassword = snapshot?.password || pa?.password || "-";
+  let rawProfile = snapshot?.profile || pa?.profile || "-";
+  let rawPin = snapshot?.pin || pa?.pin || "-";
+
+  if (rawEmail.includes("|")) {
+    const parts = rawEmail.split("|");
+    rawEmail = parts[0] || "-";
+    if (parts[1]) rawPassword = parts[1];
+    if (parts[2]) rawProfile = parts[2];
+    if (parts[3]) rawPin = parts[3];
+  }
+
   return {
-    email: snapshot?.email || pa?.email || "-",
-    password: snapshot?.password || pa?.password || "-",
-    profile: snapshot?.profile || pa?.profile || "-",
-    pin: snapshot?.pin || pa?.pin || "-",
+    email: rawEmail,
+    password: rawPassword,
+    profile: rawProfile,
+    pin: rawPin,
     sold_at: snapshot?.sold_at || pa?.sold_at || t?.purchased_at || t?.created_at,
   };
 }
