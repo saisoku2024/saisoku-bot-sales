@@ -271,28 +271,26 @@ export async function handleUploadStockFile(
   await editMessage(
     chatId,
     loadingMsg.message_id,
-    `<b>📦 STOCK MANAGEMENT</b>
-
-✅ Upload Stock Berhasil
-
-📄 Total Data    [${lines.length}]
-✅ Valid         [${accounts.length}]
-❌ Invalid       [${invalid}]
-
-📊 HASIL UPLOAD
+    `📦 <b>STOCK UPLOAD REPORT</b>
 ━━━━━━━━━━━━━━━━━━
-🆕 Insert Baru    [${insertedNew}]
-♻️ Reuse Expired  [${insertedExpired}]
-⏭️ Skip Available [${skippedAvailable}]
-🔒 Skip Active    [${skippedActive}]
+📊 <b>Summary Status:</b>
+ ├ 📄 Jumlah Data Upload : <code>${lines.length}</code>
+ ├ 🟢 Valid / Cocok      : <code>${accounts.length}</code>
+ └ 🔴 Format Salah (Invalid) : <code>${invalid}</code>
 
-📈 SUMMARY
-━━━━━━━━━━━━━━━━━━
-📥 Berhasil Masuk  [${insertedNew + insertedExpired}]
-🚫 Ditolak         [${skippedAvailable + skippedActive}]
+📥 <b>Inserted Details:</b>
+ ├ 🆕 Data Baru (New)    : <code>${insertedNew}</code>
+ └ ♻️ Pakai Ulang (Expired) : <code>${insertedExpired}</code>
 
+🚫 <b>Duplicates / Skipped:</b>
+ ├ ⏭️ Duplikat Ready     : <code>${skippedAvailable}</code>
+ └ 🔒 Duplikat Aktif     : <code>${skippedActive}</code>
+
+📈 <b>Final Results:</b>
+ ├ 📥 <b>Success (Berhasil)</b> : <b>${insertedNew + insertedExpired}</b>
+ └ 🚫 <b>Skipped (Dilewati)</b> : <b>${skippedAvailable + skippedActive}</b>
 ━━━━━━━━━━━━━━━━━━
-🎉 Upload Done`
+🎉 <i>Proses upload selesai dengan sukses!</i>`
   );
 
   return ok();
