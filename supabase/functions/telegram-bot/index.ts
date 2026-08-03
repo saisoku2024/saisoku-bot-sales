@@ -105,6 +105,36 @@ function getUpdateMeta(body: any) {
 // SERVER
 // ===============================
 serve(async (req: Request) => {
+  const url = new URL(req.url);
+  if (url.pathname.endsWith("/broadcast")) {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const expectedToken = ENV.SB_SERVICE_ROLE || "";
+    if (!authHeader.startsWith("Bearer ") || authHeader.slice(7) !== expectedToken) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    if (req.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    try {
+      const { text } = await req.json();
+      if (!text) {
+        return new Response(JSON.stringify({ error: "Text is required" }), { status: 400, headers: { "content-type": "application/json" } });
+      }
+
+      const { broadcastToAllUsers } = await import("./src/handlers/admin.handler.ts");
+      const result = await broadcastToAllUsers(text);
+
+      return new Response(JSON.stringify(result), {
+        headers: { "content-type": "application/json" },
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      return new Response(JSON.stringify({ error: errorMsg }), { status: 500, headers: { "content-type": "application/json" } });
+    }
+  }
+
   if (req.method === "GET") {
     const webhookUrl = `${ENV.SB_URL}/functions/v1/telegram-bot`;
     const res = await fetch(
