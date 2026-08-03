@@ -30,7 +30,15 @@ function parseStockFile(content: string) {
   let invalid = 0;
 
   for (const line of lines) {
-    const separator = line.includes("|") ? "|" : ":";
+    let separator = ":";
+    if (line.includes("|")) {
+      separator = "|";
+    } else if (line.includes(";")) {
+      separator = ";";
+    } else if (line.includes(":")) {
+      separator = ":";
+    }
+    
     const parts = line.split(separator);
 
     if (parts.length !== 4) {
