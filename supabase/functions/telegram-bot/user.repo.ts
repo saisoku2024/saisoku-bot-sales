@@ -77,9 +77,7 @@ export async function createUserIfNotExists(
 }
 
 export async function ensureOwnerBootstrap(telegramId: number) {
-  const isTargetOwner =
-    (ENV.OWNER_TELEGRAM_ID > 0 && telegramId === ENV.OWNER_TELEGRAM_ID) ||
-    telegramId === 72246533;
+  const isTargetOwner = ENV.OWNER_TELEGRAM_ID > 0 && telegramId === ENV.OWNER_TELEGRAM_ID;
 
   if (!isTargetOwner) return;
 

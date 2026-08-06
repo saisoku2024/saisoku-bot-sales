@@ -570,23 +570,6 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
     console.error("WARRANTY TICKET REPLY ERROR:", replyError);
   }
 
-  // Increment warranty claim count
-  const { data: sa } = await supabase
-    .from("sold_accounts")
-    .select("id, warranty_claim_count")
-    .eq("transaction_id", trxId)
-    .maybeSingle();
-
-  if (sa) {
-    await supabase
-      .from("sold_accounts")
-      .update({
-        warranty_claim_count: (sa.warranty_claim_count || 0) + 1,
-        warranty_last_claim_at: new Date().toISOString(),
-      })
-      .eq("id", sa.id);
-  }
-
   const date = ticket.created_at ? new Date(ticket.created_at) : new Date();
   const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
   const yyyy = wibDate.getUTCFullYear();
