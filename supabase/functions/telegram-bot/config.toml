@@ -1,0 +1,5 @@
+# Supabase Edge Function Configuration for telegram-bot
+# Disable JWT verification at Supabase API Gateway because Telegram Webhook
+# authenticates using x-telegram-bot-api-secret-token instead of Supabase JWT.
+
+verify_jwt = false
