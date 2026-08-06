@@ -155,12 +155,16 @@ export async function handleUploadStockPage(
   const start = (page - 1) * ITEMS_PER_PAGE;
   const pageProducts = allProducts.slice(start, start + ITEMS_PER_PAGE);
 
-  const keyboard: any[] = pageProducts.map((p: any) => [
-    {
-      text: p.name.toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase()),
-      callback_data: `upload_product_${p.id}`,
-    },
-  ]);
+  // 2-2-2-2-2 Inline keyboard buttons layout (2 buttons per row):
+  const productButtons = pageProducts.map((p: any) => ({
+    text: p.name.toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    callback_data: `upload_product_${p.id}`,
+  }));
+
+  const keyboard: any[] = [];
+  for (let i = 0; i < productButtons.length; i += 2) {
+    keyboard.push(productButtons.slice(i, i + 2));
+  }
 
   const navRow: any[] = [];
 
@@ -189,13 +193,17 @@ export async function handleUploadStockPage(
     },
   ]);
 
-  await send(
-    chatId,
-    `📤 <b>UPLOAD STOCK</b>\n\nPilih produk:\n\nHalaman ${page}/${totalPages}`,
-    {
+  const messageText = `📤 <b>UPLOAD STOCK</b>\n\nPilih produk:\n\nHalaman ${page}/${totalPages}`;
+
+  if (ctx.isCallback && ctx.msg?.message_id) {
+    await editMessage(chatId, ctx.msg.message_id, messageText, {
       inline_keyboard: keyboard,
-    }
-  );
+    });
+  } else {
+    await send(chatId, messageText, {
+      inline_keyboard: keyboard,
+    });
+  }
 
   return ok();
 }
