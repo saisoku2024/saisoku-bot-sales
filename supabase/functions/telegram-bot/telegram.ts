@@ -78,7 +78,7 @@ function applyInlineButtonStyles(kb?: unknown): unknown {
 // SEND MESSAGE
 // ==========================
 export async function send(chatId: number, text: string, kb?: unknown) {
-  const res = await fetch(
+  let res = await fetch(
     `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
     {
       method: "POST",
@@ -92,20 +92,37 @@ export async function send(chatId: number, text: string, kb?: unknown) {
     }
   );
 
-  const result = await res.json();
+  let result = await res.json();
 
-if (!result.ok) {
-  console.error("TELEGRAM SEND ERROR:", result);
-  await logBotError({
-    route: "telegram.sendMessage",
-    actor: chatId,
-    message: String(result.description || "Failed to send message"),
-    metadata: { ok: result.ok, error_code: result.error_code },
-  });
-  throw new Error(result.description || "Failed to send message");
-}
+  if (!result.ok && typeof result.description === "string" && result.description.includes("can't parse entities")) {
+    const plainText = text.replace(/<[^>]*>/g, "");
+    res = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: plainText,
+          reply_markup: applyInlineButtonStyles(kb),
+        }),
+      }
+    );
+    result = await res.json();
+  }
 
-return result.result;
+  if (!result.ok) {
+    console.error("TELEGRAM SEND ERROR:", result);
+    await logBotError({
+      route: "telegram.sendMessage",
+      actor: chatId,
+      message: String(result.description || "Failed to send message"),
+      metadata: { ok: result.ok, error_code: result.error_code },
+    });
+    throw new Error(result.description || "Failed to send message");
+  }
+
+  return result.result;
 }
 
 // ==========================

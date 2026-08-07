@@ -61,6 +61,7 @@ ${usage}`
 
   let success = 0;
   let failed = 0;
+  let lastError: string | null = null;
   const recipients = (users || []).filter((u: any) => !isUserRestricted(u));
 
   for (const u of recipients) {
@@ -71,14 +72,17 @@ ${usage}`
     } catch (err) {
       console.error("broadcast send error:", err);
       failed++;
+      lastError = err instanceof Error ? err.message : String(err);
     }
+    // Delay to respect Telegram API rate limits (max 30 msgs/sec)
+    await new Promise((resolve) => setTimeout(resolve, 35));
   }
 
   return {
     success,
     failed,
     total: recipients.length,
-    error: null,
+    error: lastError,
   };
 }
 

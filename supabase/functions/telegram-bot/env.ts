@@ -1,6 +1,10 @@
 export const ENV = {
-  SB_URL: Deno.env.get("SB_URL") || "",
-  SB_SERVICE_ROLE: Deno.env.get("SB_SERVICE_ROLE") || "",
+  SB_URL: Deno.env.get("SB_URL") || Deno.env.get("SUPABASE_URL") || Deno.env.get("NEXT_PUBLIC_SUPABASE_URL") || "",
+  SB_SERVICE_ROLE:
+    Deno.env.get("SB_SERVICE_ROLE") ||
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+    Deno.env.get("SUPABASE_SERVICE_ROLE") ||
+    "",
   TELEGRAM_BOT_TOKEN: Deno.env.get("TELEGRAM_BOT_TOKEN") || "",
   TELEGRAM_WEBHOOK_SECRET: Deno.env.get("TELEGRAM_WEBHOOK_SECRET") || "",
   VPAY_API_KEY: Deno.env.get("VPAY_API_KEY") || "",
