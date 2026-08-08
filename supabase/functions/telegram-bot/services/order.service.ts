@@ -286,7 +286,10 @@ ${loyaltyDiscount > 0 ? `└ Diskon Loyalty : -${rupiah(loyaltyDiscount)}\n` : "
 
   if (ctx.callback?.message?.message_id) {
     const { editMessage } = await import("../telegram.ts");
-    await editMessage(chatId, ctx.callback.message.message_id, checkoutText, keyboard);
+    const edited = await editMessage(chatId, ctx.callback.message.message_id, checkoutText, keyboard);
+    if (!edited) {
+      await send(chatId, checkoutText, keyboard);
+    }
   } else {
     await send(chatId, checkoutText, keyboard);
   }

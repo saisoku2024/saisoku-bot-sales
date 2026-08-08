@@ -327,7 +327,10 @@ export async function handleQtyCustomInput(ctx: BotContext): Promise<Response> {
   );
 
   // Update pesan detail yang lama
-  await editMessage(chatId, session.message_id, text, keyboard);
+  const edited = await editMessage(chatId, session.message_id, text, keyboard);
+  if (!edited) {
+    await send(chatId, text, keyboard);
+  }
 
   // Hapus session setelah berhasil update qty
   await supabase.from("qty_sessions").delete().eq("telegram_id", telegramId);
@@ -396,7 +399,10 @@ export async function handleQtyAction(
     totalPrice
   );
 
-  await editMessage(chatId, msg.message_id, text, keyboard);
+  const edited = await editMessage(chatId, msg.message_id, text, keyboard);
+  if (!edited) {
+    await send(chatId, text, keyboard);
+  }
   return ok();
 }
 
@@ -441,7 +447,10 @@ export async function handleRefreshDetail(
     totalPrice
   );
 
-  await editMessage(chatId, msg.message_id, text, keyboard);
+  const edited = await editMessage(chatId, msg.message_id, text, keyboard);
+  if (!edited) {
+    await send(chatId, text, keyboard);
+  }
   return ok();
 }
 
@@ -506,7 +515,10 @@ export async function handleListProdukPage(
 
   const { text, keyboard } = buildProductList(products, page, ITEMS_PER_PAGE);
 
-  await editMessage(chatId, msg.message_id, text, keyboard);
+  const edited = await editMessage(chatId, msg.message_id, text, keyboard);
+  if (!edited) {
+    await send(chatId, text, keyboard);
+  }
   return ok();
 }
 
