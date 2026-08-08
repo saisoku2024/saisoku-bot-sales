@@ -195,7 +195,7 @@ export async function handleUploadStockPage(
 
   const messageText = `📤 <b>UPLOAD STOCK</b>\n\nPilih produk:\n\nHalaman ${page}/${totalPages}`;
 
-  if (ctx.isCallback && ctx.msg?.message_id) {
+  if (ctx.callback && ctx.msg?.message_id) {
     await editMessage(chatId, ctx.msg.message_id, messageText, {
       inline_keyboard: keyboard,
     });

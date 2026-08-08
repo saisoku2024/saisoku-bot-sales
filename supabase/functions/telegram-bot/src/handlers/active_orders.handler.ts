@@ -342,7 +342,7 @@ export async function handleViewOrderDetail(ctx: BotContext, data: string): Prom
       status,
       products (name, duration_days),
       product_accounts (email, password, pin, profile, sold_at),
-      sold_accounts (account_snapshot)
+      sold_accounts (account_snapshot, warranty_claim_count)
     `)
     .eq("id", trxId)
     .single();
@@ -537,6 +537,8 @@ export async function handleWarrantyDescriptionInput(ctx: BotContext, session: a
 
   const shortId = getFriendlyShortId(t);
   const prodName = t?.products?.name || "Produk";
+  const soldAccount = Array.isArray(t?.sold_accounts) ? t.sold_accounts[0] : t?.sold_accounts;
+  const claimCount = soldAccount?.warranty_claim_count ?? 0;
 
   // Create Support Ticket in Database (Syncs with Web Dashboard)
   const { data: ticket, error: ticketError } = await supabase
@@ -596,7 +598,7 @@ ID Telegram: <code>${telegramId}</code>
 └ Tiket ID : <b>#${ticket.id} - [${customTicketCode}]</b>
 └ Kode Order : <code>${escapeHtml(rawTrxId)}</code> (${shortId})
 └ Produk : <b>${escapeHtml(prodName)}</b>
-└ Total Klaim : <b>${(sa?.warranty_claim_count ?? 0) + 1}x</b>
+└ Total Klaim : <b>${claimCount + 1}x</b>
 └ Keterangan : <i>${escapeHtml(description)}</i>
 
 <i>Tanggapi garansi ini melalui tombol di bawah atau Web Panel Dashboard.</i>`;

@@ -381,42 +381,53 @@ export async function handleCreateQris(
   const shortSeq = `#${String(seqNumber).padStart(6, "0")}`;
 
   const vpayApiKey = ENV.VPAY_API_KEY;
+
+  if (!vpayApiKey) {
+    await send(chatId, "❌ Sistem VPay belum dikonfigurasi. Hubungi admin untuk memasang VPAY_API_KEY.");
+    return ok();
+  }
+
+  if (subtotalAfterDiscount < 1000) {
+    await send(chatId, "❌ Minimal tagihan VPay adalah Rp 1.000. Nonaktifkan potongan saldo atau tambah quantity.");
+    return ok();
+  }
+
   let paymentRefId: string | null = null;
   let finalQrImage = ENV.QRIS_IMAGE_URL;
   let finalAmountPay = finalAmount;
   let finalUniqueCode = uniqueCode;
 
-  if (vpayApiKey && subtotalAfterDiscount >= 1000) {
-    try {
-      const response = await fetch("https://vitopediapay.com/api/pg/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${vpayApiKey}`
-        },
-        body: JSON.stringify({
-          amount: subtotalAfterDiscount,
-          ref_id: trxCode
-        })
-      });
-      const result = await response.json();
-      if (result.success && result.data) {
-        paymentRefId = result.data.id;
-        if (result.data.qris_string) {
-          finalQrImage = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(result.data.qris_string)}`;
-        } else if (result.data.qr_image) {
-          finalQrImage = result.data.qr_image;
-        } else {
-          finalQrImage = ENV.QRIS_IMAGE_URL;
-        }
-        finalAmountPay = Number(result.data.total);
-        finalUniqueCode = Number(result.data.unique_code);
-      } else {
-        console.error("VPay API error response:", result);
-      }
-    } catch (err) {
-      console.error("VPay API connection error:", err);
+  try {
+    const response = await fetch("https://vitopediapay.com/api/pg/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${vpayApiKey}`
+      },
+      body: JSON.stringify({
+        amount: subtotalAfterDiscount,
+        ref_id: trxCode
+      })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success || !result.data) {
+      console.error("VPay API error response:", result);
+      await send(chatId, `❌ Gagal membuat QRIS VPay: ${escapeHtml(result?.message || result?.error || "response tidak valid")}`);
+      return ok();
     }
+
+    paymentRefId = result.data.id;
+    if (result.data.qris_string) {
+      finalQrImage = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(result.data.qris_string)}`;
+    } else if (result.data.qr_image) {
+      finalQrImage = result.data.qr_image;
+    }
+    finalAmountPay = Number(result.data.total || finalAmount);
+    finalUniqueCode = Number(result.data.unique_code || uniqueCode);
+  } catch (err) {
+    console.error("VPay API connection error:", err);
+    await send(chatId, "❌ Gagal terhubung ke VPay. Silakan coba beberapa saat lagi.");
+    return ok();
   }
 
   const { data: order, error: orderInsertError } = await supabase
