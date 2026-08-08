@@ -142,7 +142,7 @@ export async function sendPhoto(
     try {
       const commaIdx = photo.indexOf(",");
       if (commaIdx !== -1) {
-        const base64Data = photo.substring(commaIdx + 1);
+        const base64Data = photo.substring(commaIdx + 1).replace(/[\r\n\s]/g, "");
         const mimePart = photo.substring(0, commaIdx);
         const mime = mimePart.split(";")[0].split(":")[1] || "image/png";
         
@@ -188,9 +188,10 @@ export async function sendPhoto(
 
   if (!bodyData) {
     headers = { "Content-Type": "application/json" };
+    const safePhotoUrl = photo.startsWith("http") ? photo : ENV.QRIS_IMAGE_URL;
     bodyData = JSON.stringify({
       chat_id: chatId,
-      photo,
+      photo: safePhotoUrl,
       caption,
       parse_mode: "HTML",
       reply_markup: applyInlineButtonStyles(kb),

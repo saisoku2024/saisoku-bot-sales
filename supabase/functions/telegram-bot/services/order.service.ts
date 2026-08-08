@@ -402,7 +402,13 @@ export async function handleCreateQris(
       const result = await response.json();
       if (result.success && result.data) {
         paymentRefId = result.data.id;
-        finalQrImage = result.data.qr_image;
+        if (result.data.qris_string) {
+          finalQrImage = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(result.data.qris_string)}`;
+        } else if (result.data.qr_image) {
+          finalQrImage = result.data.qr_image;
+        } else {
+          finalQrImage = ENV.QRIS_IMAGE_URL;
+        }
         finalAmountPay = Number(result.data.total);
         finalUniqueCode = Number(result.data.unique_code);
       } else {
